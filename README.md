@@ -1,22 +1,15 @@
 # STS2-RitsuLib
 
-Shared framework library for Slay the Spire 2 mods.
+A personal shared framework library for Slay the Spire 2 mods.
 
-## Features
+Chinese README: [README.zh.md](README.zh.md)
 
-- Shared framework bootstrap via `RitsuLibFramework`
-- Unified logger and patcher factories (`CreateLogger`, `CreatePatcher`)
-- Reusable patching infrastructure built on Harmony
-- Expanded runtime lifecycle events (framework/profile init, game bootstrap, model registry, game ready, run start/end)
-- Shared persistence lifecycle via `DataReadyLifecycle` (`ProfileDataReady`, `ProfileDataChanged`, `ProfileDataInvalidated`)
-- Per-mod persistent storage via `ModDataStore`
-- `using`-based batch registration via `RitsuLibFramework.BeginModDataRegistration(modId)` (auto unified load on scope exit)
-- Content registration helper via `RitsuLibFramework.GetContentRegistry(modId)` for cards, relics, potions, characters, events, and ancients
-- Timeline registration helper via `RitsuLibFramework.GetTimelineRegistry(modId)` for custom stories and epochs
-- Unlock helper via `RitsuLibFramework.GetUnlockRegistry(modId)` for epoch-gated content and common post-run unlock rules
-- Character/pool scaffolding helpers for type-list pools, character templates, and common epoch templates
-- Card asset override helpers for portraits, frame materials, and custom/reused overlay scenes
-- Multi-instance localization helpers (`CreateLocalization`, `CreateModLocalization`)
+This library is primarily developed for personal use, so development pace is need-driven and not strictly scheduled.
+
+It was created as an alternative to [BaseMod](https://github.com/Alchyr/BaseLib-StS2) due to design and coding style differences.
+There is currently no conflict between this library and BaseMod.
+
+Documentation index: [Docs/README.md](Docs/README.md)
 
 ## License
 
