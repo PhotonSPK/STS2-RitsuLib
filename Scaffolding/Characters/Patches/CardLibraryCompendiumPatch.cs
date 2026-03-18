@@ -1,5 +1,6 @@
 using Godot;
 using HarmonyLib;
+using MegaCrit.Sts2.Core.Assets;
 using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Models;
 using MegaCrit.Sts2.Core.Nodes.Combat;
@@ -44,8 +45,7 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             if (filterParent == null) return;
 
             ShaderMaterial? referenceMat = null;
-            if (referenceFilter.GetNodeOrNull<Control>("Image") is { } refImage &&
-                refImage.Material is ShaderMaterial refMat)
+            if (referenceFilter.GetNodeOrNull<Control>("Image") is { Material: ShaderMaterial refMat })
                 referenceMat = refMat;
 
             var updateMethod = AccessTools.Method(typeof(NCardLibrary), "UpdateCardPoolFilter");
@@ -100,22 +100,48 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
                 PivotOffset = new(28f, 28f),
             };
 
-            if (mat != null)
-                image.Material = mat;
+            image.Material = mat ?? CreateFallbackHsvMaterial();
 
             if (!string.IsNullOrWhiteSpace(iconTexturePath) && ResourceLoader.Exists(iconTexturePath))
                 image.Texture = ResourceLoader.Load<Texture2D>(iconTexturePath);
 
             filter.AddChild(image);
+            image.Owner = filter;
 
             var reticlePath = SceneHelper.GetScenePath("ui/selection_reticle");
-            if (!ResourceLoader.Exists(reticlePath)) return filter;
-            var reticle = ResourceLoader.Load<PackedScene>(reticlePath).Instantiate<NSelectionReticle>();
+            var reticle = PreloadManager.Cache.GetScene(reticlePath).Instantiate<NSelectionReticle>();
             reticle.Name = "SelectionReticle";
             reticle.UniqueNameInOwner = true;
             filter.AddChild(reticle);
+            reticle.Owner = filter;
 
             return filter;
+        }
+
+        private static ShaderMaterial CreateFallbackHsvMaterial()
+        {
+            var shader = new Shader
+            {
+                Code = """
+                       shader_type canvas_item;
+
+                       uniform float s : hint_range(0.0, 2.0) = 1.0;
+                       uniform float v : hint_range(0.0, 2.0) = 1.0;
+
+                       void fragment() {
+                           vec4 tex = texture(TEXTURE, UV);
+                           float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
+                           vec3 gray = vec3(luma);
+                           tex.rgb = mix(gray, tex.rgb, s) * v;
+                           COLOR = tex * COLOR;
+                       }
+                       """,
+            };
+
+            return new()
+            {
+                Shader = shader,
+            };
         }
     }
 }
