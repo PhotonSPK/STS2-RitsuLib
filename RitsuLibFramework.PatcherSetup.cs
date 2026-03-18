@@ -133,6 +133,7 @@ namespace STS2RitsuLib
             patcher.RegisterPatch<CharacterCombatSpineOverridePatch>();
             patcher.RegisterPatch<CharacterGameOverScreenCompatibilityPatch>();
             patcher.RegisterPatch<CardLibraryCompendiumPatch>();
+            patcher.RegisterPatch<StatsScreenCharacterStatsPatch>();
             RegisterFrameworkPatcher(FrameworkPatcherArea.CharacterAssets, patcher);
         }
 
