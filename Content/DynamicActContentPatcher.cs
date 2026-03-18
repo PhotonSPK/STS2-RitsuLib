@@ -32,6 +32,8 @@ namespace STS2RitsuLib.Content
                     DynamicPatchBuilder.FromMethod(typeof(DynamicActContentPatcher), nameof(AllEventsPostfix));
                 var ancientsPostfix =
                     DynamicPatchBuilder.FromMethod(typeof(DynamicActContentPatcher), nameof(AllAncientsPostfix));
+                var encountersPostfix =
+                    DynamicPatchBuilder.FromMethod(typeof(DynamicActContentPatcher), nameof(AllEncountersPostfix));
                 var unlockedAncientsPostfix = DynamicPatchBuilder.FromMethod(
                     typeof(DynamicActContentPatcher),
                     nameof(GetUnlockedAncientsPostfix));
@@ -40,6 +42,13 @@ namespace STS2RitsuLib.Content
                 {
                     TryAddPropertyGetterPatch(builder, actType, nameof(ActModel.AllEvents), eventsPostfix, logger);
                     TryAddPropertyGetterPatch(builder, actType, nameof(ActModel.AllAncients), ancientsPostfix, logger);
+                    TryAddMethodPatch(
+                        builder,
+                        actType,
+                        nameof(ActModel.GenerateAllEncounters),
+                        [],
+                        encountersPostfix,
+                        logger);
                     TryAddMethodPatch(
                         builder,
                         actType,
@@ -117,6 +126,13 @@ namespace STS2RitsuLib.Content
             // ReSharper restore InconsistentNaming
         {
             __result = ModContentRegistry.AppendActAncients(__instance, __result);
+        }
+
+        // ReSharper disable InconsistentNaming
+        private static void AllEncountersPostfix(ActModel __instance, ref IEnumerable<EncounterModel> __result)
+            // ReSharper restore InconsistentNaming
+        {
+            __result = ModContentRegistry.AppendActEncounters(__instance, __result);
         }
 
         // ReSharper disable InconsistentNaming

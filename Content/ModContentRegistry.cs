@@ -22,10 +22,12 @@ namespace STS2RitsuLib.Content
         private static readonly HashSet<(Type PoolType, Type ModelType)> RegisteredPoolContent = [];
         private static readonly HashSet<Type> RegisteredCharacters = [];
         private static readonly HashSet<Type> RegisteredActs = [];
+        private static readonly HashSet<Type> RegisteredMonsters = [];
         private static readonly HashSet<Type> RegisteredPowers = [];
         private static readonly HashSet<Type> RegisteredOrbs = [];
         private static readonly HashSet<Type> RegisteredSharedEvents = [];
         private static readonly HashSet<Type> RegisteredSharedAncients = [];
+        private static readonly Dictionary<Type, HashSet<Type>> RegisteredActEncounters = [];
         private static readonly Dictionary<Type, HashSet<Type>> RegisteredActEvents = [];
         private static readonly Dictionary<Type, HashSet<Type>> RegisteredActAncients = [];
         private static readonly Dictionary<Type, string> RegisteredTypeOwners = [];
@@ -127,6 +129,11 @@ namespace STS2RitsuLib.Content
             RegisterStandaloneModel(RegisteredActs, typeof(TAct), typeof(ActModel), "act");
         }
 
+        public void RegisterMonster<TMonster>() where TMonster : MonsterModel
+        {
+            RegisterStandaloneModel(RegisteredMonsters, typeof(TMonster), typeof(MonsterModel), "monster");
+        }
+
         public void RegisterPower<TPower>() where TPower : PowerModel
         {
             RegisterStandaloneModel(RegisteredPowers, typeof(TPower), typeof(PowerModel), "power");
@@ -140,6 +147,14 @@ namespace STS2RitsuLib.Content
         public void RegisterSharedEvent<TEvent>() where TEvent : EventModel
         {
             RegisterStandaloneModel(RegisteredSharedEvents, typeof(TEvent), typeof(EventModel), "shared event");
+        }
+
+        public void RegisterActEncounter<TAct, TEncounter>()
+            where TAct : ActModel
+            where TEncounter : EncounterModel
+        {
+            RegisterScopedModel(RegisteredActEncounters, typeof(TAct), typeof(TEncounter), typeof(ActModel),
+                typeof(EncounterModel), "act encounter");
         }
 
         public void RegisterActEvent<TAct, TEvent>()
@@ -218,6 +233,11 @@ namespace STS2RitsuLib.Content
             return AppendResolved(source, ResolveScopedModels<EventModel>(RegisteredActEvents, act.GetType()));
         }
 
+        internal static IEnumerable<EncounterModel> AppendActEncounters(ActModel act, IEnumerable<EncounterModel> source)
+        {
+            return AppendResolved(source, ResolveScopedModels<EncounterModel>(RegisteredActEncounters, act.GetType()));
+        }
+
         internal static IEnumerable<AncientEventModel> AppendSharedAncients(IEnumerable<AncientEventModel> source)
         {
             return AppendResolved(source, ResolveModels<AncientEventModel>(RegisteredSharedAncients));
@@ -239,10 +259,12 @@ namespace STS2RitsuLib.Content
                     .SelectMany(static entry => new[] { entry.PoolType, entry.ModelType })
                     .Concat(RegisteredCharacters)
                     .Concat(RegisteredActs)
+                    .Concat(RegisteredMonsters)
                     .Concat(RegisteredPowers)
                     .Concat(RegisteredOrbs)
                     .Concat(RegisteredSharedEvents)
                     .Concat(RegisteredSharedAncients)
+                    .Concat(RegisteredActEncounters.Values.SelectMany(static set => set))
                     .Concat(RegisteredActEvents.Values.SelectMany(static set => set))
                     .Concat(RegisteredActAncients.Values.SelectMany(static set => set))
                     .Distinct()

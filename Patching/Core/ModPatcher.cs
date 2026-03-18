@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using MegaCrit.Sts2.Core.Logging;
 using STS2RitsuLib.Patching.Models;
@@ -107,22 +108,26 @@ namespace STS2RitsuLib.Patching.Core
                 if (patch.IsCritical)
                     criticalFailureCount++;
 
-                logger.Error($"{_logPrefix}[{(patch.IsCritical ? "Critical" : "Optional")}] {patch.Id} - Failed ✗");
-                logger.Error($"{_logPrefix}  Description: {patch.Description}");
-                logger.Error($"{_logPrefix}  Error: {errorMessage}");
+                var sb = new StringBuilder();
+                sb.AppendLine($"{_logPrefix}[{(patch.IsCritical ? "Critical" : "Optional")}] {patch.Id} - Failed ✗");
                 if (exception != null)
-                    logger.Error($"{_logPrefix}  Exception: {exception}");
+                    sb.Append($"Exception: {exception}");
+                else
+                    sb.Append($"Error: {errorMessage}");
+                logger.Error(sb.ToString());
             }
 
             logger.Info($"{_logPrefix}Dynamic patch application complete: {successCount}/{patches.Length} succeeded");
 
             if (failureCount > 0)
-                logger.Warn($"{_logPrefix}{failureCount} dynamic patch(es) failed");
+                logger.Warn(
+                    criticalFailureCount > 0
+                        ? $"{_logPrefix}{failureCount} dynamic patch(es) failed, including {criticalFailureCount} critical failure(s)"
+                        : $"{_logPrefix}{failureCount} dynamic patch(es) failed, but no critical failures");
 
             if (criticalFailureCount == 0)
                 return true;
 
-            logger.Error($"{_logPrefix}{criticalFailureCount} critical dynamic patch(es) failed");
             if (rollbackOnCriticalFailure)
                 UnpatchAll();
 
