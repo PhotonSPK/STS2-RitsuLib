@@ -123,6 +123,20 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         string? CustomBannerMaterialPath { get; }
     }
 
+    /// <summary>
+    /// Implement this interface on a <see cref="MegaCrit.Sts2.Core.Models.CardPoolModel"/> to directly supply
+    /// a <see cref="Material"/> for card frames in the pool.
+    /// When <see cref="PoolFrameMaterial"/> is non-null, <c>CardFrameMaterialPath</c> is ignored entirely.
+    /// </summary>
+    public interface IModCardPoolFrameMaterial
+    {
+        /// <summary>
+        /// The material to use for card frames in this pool.
+        /// Return <c>null</c> to fall back to the path-based default.
+        /// </summary>
+        Material? PoolFrameMaterial { get; }
+    }
+
     public interface IModRelicAssetOverrides
     {
         RelicAssetProfile AssetProfile { get; }
@@ -277,6 +291,36 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
                 __instance,
                 ref __result,
                 o => o.CustomFrameMaterialPath);
+        }
+    }
+
+    public class CardPoolFrameMaterialPatch : IPatchMethod
+    {
+        public static string PatchId => "content_asset_override_card_pool_frame_material";
+        public static string Description => "Allow mod card pools to directly supply a Material for card frames";
+        public static bool IsCritical => false;
+
+        public static ModPatchTarget[] GetTargets()
+        {
+            return
+            [
+                new(typeof(CardPoolModel), "get_FrameMaterial"),
+            ];
+        }
+
+        // ReSharper disable InconsistentNaming
+        public static bool Prefix(CardPoolModel __instance, ref Material __result)
+            // ReSharper restore InconsistentNaming
+        {
+            if (__instance is not IModCardPoolFrameMaterial pool)
+                return true;
+
+            var material = pool.PoolFrameMaterial;
+            if (material == null)
+                return true;
+
+            __result = material;
+            return false;
         }
     }
 

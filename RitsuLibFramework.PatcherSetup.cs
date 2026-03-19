@@ -76,6 +76,7 @@ namespace STS2RitsuLib
             patcher.RegisterPatch<CardPortraitAvailabilityPatch>();
             patcher.RegisterPatch<CardTextureOverridePatch>();
             patcher.RegisterPatch<CardFrameMaterialPatch>();
+            patcher.RegisterPatch<CardPoolFrameMaterialPatch>();
             patcher.RegisterPatch<CardAllPortraitPathsPatch>();
             patcher.RegisterPatch<CardOverlayPathPatch>();
             patcher.RegisterPatch<CardOverlayAvailabilityPatch>();

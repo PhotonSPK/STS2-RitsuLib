@@ -7,6 +7,7 @@ using MegaCrit.Sts2.Core.Nodes.Combat;
 using MegaCrit.Sts2.Core.Nodes.Screens.CardLibrary;
 using STS2RitsuLib.Content;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Characters.Patches
 {
@@ -100,7 +101,7 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
                 PivotOffset = new(28f, 28f),
             };
 
-            image.Material = mat ?? CreateFallbackHsvMaterial();
+            image.Material = mat ?? MaterialUtils.CreateHsvShaderMaterial(1, 1, 1);
 
             if (!string.IsNullOrWhiteSpace(iconTexturePath) && ResourceLoader.Exists(iconTexturePath))
                 image.Texture = ResourceLoader.Load<Texture2D>(iconTexturePath);
@@ -116,32 +117,6 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             reticle.Owner = filter;
 
             return filter;
-        }
-
-        private static ShaderMaterial CreateFallbackHsvMaterial()
-        {
-            var shader = new Shader
-            {
-                Code = """
-                       shader_type canvas_item;
-
-                       uniform float s : hint_range(0.0, 2.0) = 1.0;
-                       uniform float v : hint_range(0.0, 2.0) = 1.0;
-
-                       void fragment() {
-                           vec4 tex = texture(TEXTURE, UV);
-                           float luma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
-                           vec3 gray = vec3(luma);
-                           tex.rgb = mix(gray, tex.rgb, s) * v;
-                           COLOR = tex * COLOR;
-                       }
-                       """,
-            };
-
-            return new()
-            {
-                Shader = shader,
-            };
         }
     }
 }
