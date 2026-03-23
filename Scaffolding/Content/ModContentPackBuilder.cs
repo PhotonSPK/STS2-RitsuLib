@@ -166,6 +166,34 @@ namespace STS2RitsuLib.Scaffolding.Content
             return AddStep(ctx => ctx.Unlocks.UnlockEpochAfterEliteVictories<TCharacter, TEpoch>(requiredEliteWins));
         }
 
+        public ModContentPackBuilder UnlockEpochAfterBossVictories<TCharacter, TEpoch>(int requiredBossWins = 15)
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            return AddStep(ctx => ctx.Unlocks.UnlockEpochAfterBossVictories<TCharacter, TEpoch>(requiredBossWins));
+        }
+
+        public ModContentPackBuilder UnlockEpochAfterAscensionOneWin<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            return AddStep(ctx => ctx.Unlocks.UnlockEpochAfterAscensionOneWin<TCharacter, TEpoch>());
+        }
+
+        public ModContentPackBuilder RevealAscensionAfterEpoch<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            return AddStep(ctx => ctx.Unlocks.RevealAscensionAfterEpoch<TCharacter, TEpoch>());
+        }
+
+        public ModContentPackBuilder UnlockCharacterAfterRunAs<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            return AddStep(ctx => ctx.Unlocks.UnlockCharacterAfterRunAs<TCharacter, TEpoch>());
+        }
+
         public ModContentPackBuilder Entry(IContentRegistrationEntry entry)
         {
             ArgumentNullException.ThrowIfNull(entry);

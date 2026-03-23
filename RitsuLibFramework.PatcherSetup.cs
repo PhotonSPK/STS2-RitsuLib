@@ -175,6 +175,10 @@ namespace STS2RitsuLib
             patcher.RegisterPatch<PotionUnlockFilterPatch>();
             patcher.RegisterPatch<GeneratedRoomEventUnlockFilterPatch>();
             patcher.RegisterPatch<EliteEpochCompatibilityPatch>();
+            patcher.RegisterPatch<BossEpochCompatibilityPatch>();
+            patcher.RegisterPatch<AscensionOneEpochCompatibilityPatch>();
+            patcher.RegisterPatch<PostRunCharacterUnlockEpochCompatibilityPatch>();
+            patcher.RegisterPatch<AscensionEpochRevealCompatibilityPatch>();
             RegisterFrameworkPatcher(FrameworkPatcherArea.Unlocks, patcher);
         }
 

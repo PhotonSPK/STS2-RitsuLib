@@ -19,6 +19,10 @@ namespace STS2RitsuLib.Unlocks
         private static readonly Dictionary<ModelId, string> RequiredEpochsByModelId = [];
         private static readonly List<PostRunEpochUnlockRule> PostRunRules = [];
         private static readonly Dictionary<ModelId, EliteEpochUnlockRule> EliteEpochRulesByCharacterId = [];
+        private static readonly Dictionary<ModelId, CountedEpochUnlockRule> BossEpochRulesByCharacterId = [];
+        private static readonly Dictionary<ModelId, string> AscensionOneEpochsByCharacterId = [];
+        private static readonly Dictionary<ModelId, string> AscensionRevealEpochsByCharacterId = [];
+        private static readonly Dictionary<ModelId, string> PostRunCharacterUnlockEpochsByCharacterId = [];
 
         private string? _freezeReason;
 
@@ -146,6 +150,83 @@ namespace STS2RitsuLib.Unlocks
             }
         }
 
+        public void UnlockEpochAfterBossVictories<TCharacter, TEpoch>(int requiredBossWins = 15)
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            RegisterBossEpochRule(
+                CountedEpochUnlockRule.Create(
+                    ModelDb.GetId<TCharacter>(),
+                    new TEpoch().Id,
+                    requiredBossWins,
+                    $"Unlock {typeof(TEpoch).Name} after defeating {requiredBossWins} boss(es) as {typeof(TCharacter).Name}"));
+        }
+
+        public void RegisterBossEpochRule(CountedEpochUnlockRule rule)
+        {
+            EnsureMutable($"register boss epoch rule '{rule.Description}'");
+            ArgumentNullException.ThrowIfNull(rule);
+
+            lock (SyncRoot)
+            {
+                BossEpochRulesByCharacterId[rule.CharacterId] = rule;
+            }
+        }
+
+        public void UnlockEpochAfterAscensionOneWin<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            RegisterAscensionOneEpoch(ModelDb.GetId<TCharacter>(), new TEpoch().Id);
+        }
+
+        public void RegisterAscensionOneEpoch(ModelId characterId, string epochId)
+        {
+            EnsureMutable($"register ascension-one epoch '{epochId}'");
+            ArgumentException.ThrowIfNullOrWhiteSpace(epochId);
+
+            lock (SyncRoot)
+            {
+                AscensionOneEpochsByCharacterId[characterId] = epochId;
+            }
+        }
+
+        public void RevealAscensionAfterEpoch<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            RegisterAscensionRevealEpoch(ModelDb.GetId<TCharacter>(), new TEpoch().Id);
+        }
+
+        public void RegisterAscensionRevealEpoch(ModelId characterId, string epochId)
+        {
+            EnsureMutable($"register ascension reveal epoch '{epochId}'");
+            ArgumentException.ThrowIfNullOrWhiteSpace(epochId);
+
+            lock (SyncRoot)
+            {
+                AscensionRevealEpochsByCharacterId[characterId] = epochId;
+            }
+        }
+
+        public void UnlockCharacterAfterRunAs<TCharacter, TEpoch>()
+            where TCharacter : CharacterModel
+            where TEpoch : EpochModel, new()
+        {
+            RegisterPostRunCharacterUnlockEpoch(ModelDb.GetId<TCharacter>(), new TEpoch().Id);
+        }
+
+        public void RegisterPostRunCharacterUnlockEpoch(ModelId characterId, string epochId)
+        {
+            EnsureMutable($"register post-run character unlock epoch '{epochId}'");
+            ArgumentException.ThrowIfNullOrWhiteSpace(epochId);
+
+            lock (SyncRoot)
+            {
+                PostRunCharacterUnlockEpochsByCharacterId[characterId] = epochId;
+            }
+        }
+
         internal static void FreezeRegistrations(string reason)
         {
             lock (SyncRoot)
@@ -180,6 +261,38 @@ namespace STS2RitsuLib.Unlocks
             lock (SyncRoot)
             {
                 return EliteEpochRulesByCharacterId.TryGetValue(characterId, out rule!);
+            }
+        }
+
+        internal static bool TryGetBossEpochRule(ModelId characterId, out CountedEpochUnlockRule rule)
+        {
+            lock (SyncRoot)
+            {
+                return BossEpochRulesByCharacterId.TryGetValue(characterId, out rule!);
+            }
+        }
+
+        internal static bool TryGetAscensionOneEpoch(ModelId characterId, out string epochId)
+        {
+            lock (SyncRoot)
+            {
+                return AscensionOneEpochsByCharacterId.TryGetValue(characterId, out epochId!);
+            }
+        }
+
+        internal static bool TryGetAscensionRevealEpoch(ModelId characterId, out string epochId)
+        {
+            lock (SyncRoot)
+            {
+                return AscensionRevealEpochsByCharacterId.TryGetValue(characterId, out epochId!);
+            }
+        }
+
+        internal static bool TryGetPostRunCharacterUnlockEpoch(ModelId characterId, out string epochId)
+        {
+            lock (SyncRoot)
+            {
+                return PostRunCharacterUnlockEpochsByCharacterId.TryGetValue(characterId, out epochId!);
             }
         }
 
@@ -286,6 +399,25 @@ namespace STS2RitsuLib.Unlocks
             ArgumentOutOfRangeException.ThrowIfLessThan(requiredEliteWins, 1);
             ArgumentException.ThrowIfNullOrWhiteSpace(description);
             return new(characterId, epochId, requiredEliteWins, description);
+        }
+    }
+
+    public sealed record CountedEpochUnlockRule(
+        ModelId CharacterId,
+        string EpochId,
+        int RequiredWins,
+        string Description)
+    {
+        public static CountedEpochUnlockRule Create(
+            ModelId characterId,
+            string epochId,
+            int requiredWins,
+            string description)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(epochId);
+            ArgumentOutOfRangeException.ThrowIfLessThan(requiredWins, 1);
+            ArgumentException.ThrowIfNullOrWhiteSpace(description);
+            return new(characterId, epochId, requiredWins, description);
         }
     }
 }

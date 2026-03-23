@@ -48,7 +48,8 @@ namespace STS2RitsuLib.Patching.Models
                     typeof(TPatch),
                     TPatch.IsCritical,
                     $"{TPatch.Description} -> {target}",
-                    target.ParameterTypes
+                    target.ParameterTypes,
+                    target.IgnoreIfMissing
                 );
             }
 

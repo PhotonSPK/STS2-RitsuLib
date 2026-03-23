@@ -10,7 +10,8 @@ namespace STS2RitsuLib.Patching.Models
         Type patchType,
         bool isCritical = true,
         string description = "",
-        Type[]? parameterTypes = null)
+        Type[]? parameterTypes = null,
+        bool ignoreIfTargetMissing = false)
     {
         public string Id { get; } = id;
         public Type TargetType { get; } = targetType;
@@ -18,6 +19,7 @@ namespace STS2RitsuLib.Patching.Models
         public Type PatchType { get; } = patchType;
         public bool IsCritical { get; } = isCritical;
         public Type[]? ParameterTypes { get; } = parameterTypes;
+        public bool IgnoreIfTargetMissing { get; } = ignoreIfTargetMissing;
 
         public string Description { get; } =
             string.IsNullOrEmpty(description) ? $"Patch {targetType.Name}.{methodName}" : description;

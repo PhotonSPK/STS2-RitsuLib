@@ -147,12 +147,17 @@ namespace STS2RitsuLib.Patching.Core
             for (var i = 0; i < _registeredPatches.Count; i++)
                 results[i] = ApplyPatch(_registeredPatches[i]);
             var success = ProcessPatchResults(results);
+            var ignoredCount = results.Count(result => result.Ignored);
+            var failedCount = results.Count(result => !result.Success);
 
             if (success)
             {
                 IsApplied = true;
-                if (AppliedPatchCount == _registeredPatches.Count)
+                if (ignoredCount == 0 && failedCount == 0)
                     logger.Info($"{_logPrefix}All patches applied successfully");
+                else if (failedCount == 0)
+                    logger.Info(
+                        $"{_logPrefix}All required patches applied; {ignoredCount} optional patch target(s) were ignored");
                 else
                     logger.Warn(
                         $"{_logPrefix}Critical patches succeeded, but some optional patches failed to apply");
@@ -228,6 +233,11 @@ namespace STS2RitsuLib.Patching.Core
                 if (originalMethod == null)
                 {
                     _patchedStatus[modPatchInfo.Id] = false;
+                    if (modPatchInfo.IgnoreIfTargetMissing)
+                        return ModPatchResult.CreateIgnored(
+                            modPatchInfo,
+                            $"Target method not found but patch is marked ignorable: {modPatchInfo.TargetType.Name}.{modPatchInfo.MethodName}");
+
                     return ModPatchResult.CreateFailure(
                         modPatchInfo,
                         $"Target method not found: {modPatchInfo.TargetType.Name}.{modPatchInfo.MethodName}"
@@ -297,6 +307,7 @@ namespace STS2RitsuLib.Patching.Core
         private bool ProcessPatchResults(ReadOnlySpan<ModPatchResult> results)
         {
             var successCount = 0;
+            var ignoredCount = 0;
             var failureCount = 0;
             var criticalFailureCount = 0;
 
@@ -312,7 +323,12 @@ namespace STS2RitsuLib.Patching.Core
                 if (result.Success)
                 {
                     successCount++;
-                    logger.Info($"{_logPrefix}[{importance}] {result.ModPatchInfo.Id} - Success ✓");
+                    if (result.Ignored)
+                        ignoredCount++;
+
+                    logger.Info(result.Ignored
+                        ? $"{_logPrefix}[{importance}] {result.ModPatchInfo.Id} - Ignored (target missing)"
+                        : $"{_logPrefix}[{importance}] {result.ModPatchInfo.Id} - Success ✓");
                 }
                 else
                 {
@@ -328,7 +344,8 @@ namespace STS2RitsuLib.Patching.Core
                 }
             }
 
-            logger.Info($"{_logPrefix}Patch application complete: {successCount}/{results.Length} succeeded");
+            logger.Info(
+                $"{_logPrefix}Patch application complete: {successCount - ignoredCount} applied, {ignoredCount} ignored, {failureCount} failed, {results.Length} total");
 
             if (failureCount > 0) logger.Warn($"{_logPrefix}{failureCount} patch(es) failed");
 
