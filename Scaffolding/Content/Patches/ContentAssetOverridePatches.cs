@@ -2,6 +2,7 @@ using System.Reflection;
 using Godot;
 using MegaCrit.Sts2.Core.Models;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Content.Patches
 {
@@ -11,7 +12,9 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         internal static bool TryUseStringOverride<TOverrides>(
             object instance,
             ref string __result,
-            Func<TOverrides, string?> selector)
+            Func<TOverrides, string?> selector,
+            string memberName,
+            bool requireExistingResource = true)
             where TOverrides : class
         {
             if (instance is not TOverrides overrides)
@@ -19,6 +22,9 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
 
             var value = selector(overrides);
             if (string.IsNullOrWhiteSpace(value))
+                return true;
+
+            if (requireExistingResource && !AssetPathDiagnostics.Exists(value, instance, memberName))
                 return true;
 
             __result = value;
@@ -29,10 +35,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         internal static bool TryUseTextureOverride<TOverrides>(
             object instance,
             ref Texture2D __result,
-            Func<TOverrides, string?> selector)
+            Func<TOverrides, string?> selector,
+            string memberName)
             where TOverrides : class
         {
-            if (!TryGetPath(instance, selector, out var path))
+            if (!TryGetPath(instance, selector, memberName, out var path))
                 return true;
 
             __result = ResourceLoader.Load<Texture2D>(path);
@@ -43,10 +50,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         internal static bool TryUseCompressedTextureOverride<TOverrides>(
             object instance,
             ref CompressedTexture2D __result,
-            Func<TOverrides, string?> selector)
+            Func<TOverrides, string?> selector,
+            string memberName)
             where TOverrides : class
         {
-            if (!TryGetPath(instance, selector, out var path))
+            if (!TryGetPath(instance, selector, memberName, out var path))
                 return true;
 
             __result = ResourceLoader.Load<CompressedTexture2D>(path);
@@ -57,10 +65,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         internal static bool TryUseMaterialOverride<TOverrides>(
             object instance,
             ref Material __result,
-            Func<TOverrides, string?> selector)
+            Func<TOverrides, string?> selector,
+            string memberName)
             where TOverrides : class
         {
-            if (!TryGetPath(instance, selector, out var path))
+            if (!TryGetPath(instance, selector, memberName, out var path))
                 return true;
 
             __result = ResourceLoader.Load<Material>(path);
@@ -68,12 +77,13 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         }
 
         // ReSharper disable once InconsistentNaming
-        internal static bool TryUsePortraitPathList(IModCardAssetOverrides overrides, ref IEnumerable<string> __result)
+        internal static bool TryUsePortraitPathList(object instance, IModCardAssetOverrides overrides,
+            ref IEnumerable<string> __result)
         {
-            var paths = new[] { overrides.CustomPortraitPath, overrides.CustomBetaPortraitPath }
-                .Where(path => !string.IsNullOrWhiteSpace(path) && ResourceLoader.Exists(path))
-                .Cast<string>()
-                .ToArray();
+            var paths = AssetPathDiagnostics.CollectExistingPaths(
+                instance,
+                (overrides.CustomPortraitPath, nameof(IModCardAssetOverrides.CustomPortraitPath)),
+                (overrides.CustomBetaPortraitPath, nameof(IModCardAssetOverrides.CustomBetaPortraitPath)));
 
             if (paths.Length == 0)
                 return true;
@@ -83,16 +93,20 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         }
 
         // ReSharper disable once InconsistentNaming
-        internal static bool TryUseExistenceOverride(string? path, ref bool __result)
+        internal static bool TryUseExistenceOverride(object instance, string? path, string memberName, ref bool __result)
         {
             if (string.IsNullOrWhiteSpace(path))
                 return true;
 
-            __result = ResourceLoader.Exists(path);
+            __result = AssetPathDiagnostics.Exists(path, instance, memberName);
             return false;
         }
 
-        private static bool TryGetPath<TOverrides>(object instance, Func<TOverrides, string?> selector, out string path)
+        private static bool TryGetPath<TOverrides>(
+            object instance,
+            Func<TOverrides, string?> selector,
+            string memberName,
+            out string path)
             where TOverrides : class
         {
             path = string.Empty;
@@ -101,7 +115,7 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
                 return false;
 
             var candidate = selector(overrides);
-            if (string.IsNullOrWhiteSpace(candidate) || !ResourceLoader.Exists(candidate))
+            if (string.IsNullOrWhiteSpace(candidate) || !AssetPathDiagnostics.Exists(candidate, instance, memberName))
                 return false;
 
             path = candidate;
@@ -192,9 +206,10 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_PortraitPath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModCardAssetOverrides>(
-                    __instance, ref __result, o => o.CustomPortraitPath),
+                    __instance, ref __result, o => o.CustomPortraitPath, nameof(IModCardAssetOverrides.CustomPortraitPath)),
                 "get_BetaPortraitPath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModCardAssetOverrides>(
-                    __instance, ref __result, o => o.CustomBetaPortraitPath),
+                    __instance, ref __result, o => o.CustomBetaPortraitPath,
+                    nameof(IModCardAssetOverrides.CustomBetaPortraitPath)),
                 _ => true,
             };
         }
@@ -225,9 +240,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_HasPortrait" => ContentAssetOverridePatchHelper.TryUseExistenceOverride(
-                    overrides.CustomPortraitPath, ref __result),
+                    __instance, overrides.CustomPortraitPath, nameof(IModCardAssetOverrides.CustomPortraitPath),
+                    ref __result),
                 "get_HasBetaPortrait" => ContentAssetOverridePatchHelper.TryUseExistenceOverride(
-                    overrides.CustomBetaPortraitPath, ref __result),
+                    __instance, overrides.CustomBetaPortraitPath, nameof(IModCardAssetOverrides.CustomBetaPortraitPath),
+                    ref __result),
                 _ => true,
             };
         }
@@ -259,11 +276,13 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_Frame" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModCardAssetOverrides>(__instance,
-                    ref __result, o => o.CustomFramePath),
+                    ref __result, o => o.CustomFramePath, nameof(IModCardAssetOverrides.CustomFramePath)),
                 "get_PortraitBorder" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModCardAssetOverrides>(
-                    __instance, ref __result, o => o.CustomPortraitBorderPath),
+                    __instance, ref __result, o => o.CustomPortraitBorderPath,
+                    nameof(IModCardAssetOverrides.CustomPortraitBorderPath)),
                 "get_EnergyIcon" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModCardAssetOverrides>(
-                    __instance, ref __result, o => o.CustomEnergyIconPath),
+                    __instance, ref __result, o => o.CustomEnergyIconPath,
+                    nameof(IModCardAssetOverrides.CustomEnergyIconPath)),
                 _ => true,
             };
         }
@@ -290,7 +309,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseMaterialOverride<IModCardAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomFrameMaterialPath);
+                o => o.CustomFrameMaterialPath,
+                nameof(IModCardAssetOverrides.CustomFrameMaterialPath));
         }
     }
 
@@ -343,7 +363,7 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return __instance is not IModCardAssetOverrides overrides ||
-                   ContentAssetOverridePatchHelper.TryUsePortraitPathList(overrides, ref __result);
+                   ContentAssetOverridePatchHelper.TryUsePortraitPathList(__instance, overrides, ref __result);
         }
     }
 
@@ -368,7 +388,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModCardAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomOverlayScenePath);
+                o => o.CustomOverlayScenePath,
+                nameof(IModCardAssetOverrides.CustomOverlayScenePath));
         }
     }
 
@@ -393,7 +414,10 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             if (__instance is not IModCardAssetOverrides overrides)
                 return true;
 
-            return ContentAssetOverridePatchHelper.TryUseExistenceOverride(overrides.CustomOverlayScenePath,
+            return ContentAssetOverridePatchHelper.TryUseExistenceOverride(
+                __instance,
+                overrides.CustomOverlayScenePath,
+                nameof(IModCardAssetOverrides.CustomOverlayScenePath),
                 ref __result);
         }
     }
@@ -449,7 +473,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModRelicAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomIconPath);
+                o => o.CustomIconPath,
+                nameof(IModRelicAssetOverrides.CustomIconPath));
         }
     }
 
@@ -476,11 +501,13 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_Icon" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModRelicAssetOverrides>(__instance,
-                    ref __result, o => o.CustomIconPath),
+                    ref __result, o => o.CustomIconPath, nameof(IModRelicAssetOverrides.CustomIconPath)),
                 "get_IconOutline" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModRelicAssetOverrides>(
-                    __instance, ref __result, o => o.CustomIconOutlinePath),
+                    __instance, ref __result, o => o.CustomIconOutlinePath,
+                    nameof(IModRelicAssetOverrides.CustomIconOutlinePath)),
                 "get_BigIcon" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModRelicAssetOverrides>(
-                    __instance, ref __result, o => o.CustomBigIconPath),
+                    __instance, ref __result, o => o.CustomBigIconPath,
+                    nameof(IModRelicAssetOverrides.CustomBigIconPath)),
                 _ => true,
             };
         }
@@ -507,7 +534,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModPowerAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomIconPath);
+                o => o.CustomIconPath,
+                nameof(IModPowerAssetOverrides.CustomIconPath));
         }
     }
 
@@ -533,9 +561,10 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_Icon" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModPowerAssetOverrides>(__instance,
-                    ref __result, o => o.CustomIconPath),
+                    ref __result, o => o.CustomIconPath, nameof(IModPowerAssetOverrides.CustomIconPath)),
                 "get_BigIcon" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModPowerAssetOverrides>(
-                    __instance, ref __result, o => o.CustomBigIconPath),
+                    __instance, ref __result, o => o.CustomBigIconPath,
+                    nameof(IModPowerAssetOverrides.CustomBigIconPath)),
                 _ => true,
             };
         }
@@ -562,7 +591,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseCompressedTextureOverride<IModOrbAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomIconPath);
+                o => o.CustomIconPath,
+                nameof(IModOrbAssetOverrides.CustomIconPath));
         }
     }
 
@@ -587,7 +617,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModOrbAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomVisualsScenePath);
+                o => o.CustomVisualsScenePath,
+                nameof(IModOrbAssetOverrides.CustomVisualsScenePath));
         }
     }
 
@@ -612,10 +643,10 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             if (__instance is not IModOrbAssetOverrides overrides)
                 return true;
 
-            var paths = new[] { overrides.CustomIconPath, overrides.CustomVisualsScenePath }
-                .Where(path => !string.IsNullOrWhiteSpace(path) && ResourceLoader.Exists(path))
-                .Cast<string>()
-                .ToArray();
+            var paths = AssetPathDiagnostics.CollectExistingPaths(
+                __instance,
+                (overrides.CustomIconPath, nameof(IModOrbAssetOverrides.CustomIconPath)),
+                (overrides.CustomVisualsScenePath, nameof(IModOrbAssetOverrides.CustomVisualsScenePath)));
             if (paths.Length == 0)
                 return true;
 
@@ -646,9 +677,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_ImagePath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModPotionAssetOverrides>(
-                    __instance, ref __result, o => o.CustomImagePath),
+                    __instance, ref __result, o => o.CustomImagePath,
+                    nameof(IModPotionAssetOverrides.CustomImagePath)),
                 "get_OutlinePath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModPotionAssetOverrides>(
-                    __instance, ref __result, o => o.CustomOutlinePath),
+                    __instance, ref __result, o => o.CustomOutlinePath,
+                    nameof(IModPotionAssetOverrides.CustomOutlinePath)),
                 _ => true,
             };
         }
@@ -676,9 +709,11 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return __originalMethod.Name switch
             {
                 "get_Image" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModPotionAssetOverrides>(
-                    __instance, ref __result, o => o.CustomImagePath),
+                    __instance, ref __result, o => o.CustomImagePath,
+                    nameof(IModPotionAssetOverrides.CustomImagePath)),
                 "get_Outline" => ContentAssetOverridePatchHelper.TryUseTextureOverride<IModPotionAssetOverrides>(
-                    __instance, ref __result, o => o.CustomOutlinePath),
+                    __instance, ref __result, o => o.CustomOutlinePath,
+                    nameof(IModPotionAssetOverrides.CustomOutlinePath)),
                 _ => true,
             };
         }
@@ -700,7 +735,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return ContentAssetOverridePatchHelper.TryUseTextureOverride<IModCardAssetOverrides>(
-                __instance, ref __result, o => o.CustomBannerTexturePath);
+                __instance, ref __result, o => o.CustomBannerTexturePath,
+                nameof(IModCardAssetOverrides.CustomBannerTexturePath));
         }
     }
 
@@ -720,7 +756,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return ContentAssetOverridePatchHelper.TryUseMaterialOverride<IModCardAssetOverrides>(
-                __instance, ref __result, o => o.CustomBannerMaterialPath);
+                __instance, ref __result, o => o.CustomBannerMaterialPath,
+                nameof(IModCardAssetOverrides.CustomBannerMaterialPath));
         }
     }
 
@@ -742,7 +779,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModActAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomBackgroundScenePath);
+                o => o.CustomBackgroundScenePath,
+                nameof(IModActAssetOverrides.CustomBackgroundScenePath));
         }
     }
 
@@ -764,7 +802,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModActAssetOverrides>(
                 __instance,
                 ref __result,
-                o => o.CustomRestSiteBackgroundPath);
+                o => o.CustomRestSiteBackgroundPath,
+                nameof(IModActAssetOverrides.CustomRestSiteBackgroundPath));
         }
     }
 
@@ -793,15 +832,18 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
                 "get_MapTopBgPath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModActAssetOverrides>(
                     __instance,
                     ref __result,
-                    o => o.CustomMapTopBgPath),
+                    o => o.CustomMapTopBgPath,
+                    nameof(IModActAssetOverrides.CustomMapTopBgPath)),
                 "get_MapMidBgPath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModActAssetOverrides>(
                     __instance,
                     ref __result,
-                    o => o.CustomMapMidBgPath),
+                    o => o.CustomMapMidBgPath,
+                    nameof(IModActAssetOverrides.CustomMapMidBgPath)),
                 "get_MapBotBgPath" => ContentAssetOverridePatchHelper.TryUseStringOverride<IModActAssetOverrides>(
                     __instance,
                     ref __result,
-                    o => o.CustomMapBotBgPath),
+                    o => o.CustomMapBotBgPath,
+                    nameof(IModActAssetOverrides.CustomMapBotBgPath)),
                 _ => true,
             };
         }
@@ -829,7 +871,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModAfflictionAssetOverrides>(
-                __instance, ref __result, o => o.CustomOverlayScenePath);
+                __instance, ref __result, o => o.CustomOverlayScenePath,
+                nameof(IModAfflictionAssetOverrides.CustomOverlayScenePath));
         }
     }
 
@@ -850,10 +893,15 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
         {
             var path = string.Empty;
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModAfflictionAssetOverrides>(
+                        __instance,
+                        ref path,
+                        o => o.CustomOverlayScenePath,
+                        nameof(IModAfflictionAssetOverrides.CustomOverlayScenePath)) ||
+                   ContentAssetOverridePatchHelper.TryUseExistenceOverride(
                        __instance,
-                       ref path,
-                       o => o.CustomOverlayScenePath) ||
-                   ContentAssetOverridePatchHelper.TryUseExistenceOverride(path, ref __result);
+                       path,
+                       nameof(IModAfflictionAssetOverrides.CustomOverlayScenePath),
+                       ref __result);
         }
     }
 
@@ -876,7 +924,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             if (ContentAssetOverridePatchHelper.TryUseStringOverride<IModAfflictionAssetOverrides>(
                     __instance,
                     ref path,
-                    o => o.CustomOverlayScenePath))
+                    o => o.CustomOverlayScenePath,
+                    nameof(IModAfflictionAssetOverrides.CustomOverlayScenePath)))
                 return true;
 
             if (!ResourceLoader.Exists(path))
@@ -909,7 +958,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModEnchantmentAssetOverrides>(
-                __instance, ref __result, o => o.CustomIconPath);
+                __instance, ref __result, o => o.CustomIconPath,
+                nameof(IModEnchantmentAssetOverrides.CustomIconPath));
         }
     }
 
@@ -929,7 +979,8 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
             // ReSharper restore InconsistentNaming
         {
             return ContentAssetOverridePatchHelper.TryUseStringOverride<IModPowerAssetOverrides>(
-                __instance, ref __result, o => o.CustomBigIconPath);
+                __instance, ref __result, o => o.CustomBigIconPath,
+                nameof(IModPowerAssetOverrides.CustomBigIconPath));
         }
     }
 

@@ -2,6 +2,7 @@ using Godot;
 using MegaCrit.Sts2.Core.Bindings.MegaSpine;
 using MegaCrit.Sts2.Core.Nodes.Combat;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Characters.Patches
 {
@@ -29,6 +30,10 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
 
             var skeletonPath = overrides.CustomCombatSpineSkeletonDataPath;
             if (string.IsNullOrWhiteSpace(skeletonPath))
+                return;
+
+            if (!AssetPathDiagnostics.Exists(skeletonPath, player.Character,
+                    nameof(IModCharacterAssetOverrides.CustomCombatSpineSkeletonDataPath)))
                 return;
 
             var visuals = __instance.Visuals;

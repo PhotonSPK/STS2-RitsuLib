@@ -1,5 +1,6 @@
 using MegaCrit.Sts2.Core.Models;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Characters.Patches
 {
@@ -9,13 +10,18 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             CharacterModel instance,
             // ReSharper disable once InconsistentNaming
             ref string __result,
-            Func<IModCharacterAssetOverrides, string?> selector)
+            Func<IModCharacterAssetOverrides, string?> selector,
+            string memberName,
+            bool requireExistingResource = true)
         {
             if (instance is not IModCharacterAssetOverrides overrides)
                 return true;
 
             var overrideValue = selector(overrides);
             if (string.IsNullOrWhiteSpace(overrideValue))
+                return true;
+
+            if (requireExistingResource && !AssetPathDiagnostics.Exists(overrideValue, instance, memberName))
                 return true;
 
             __result = overrideValue;
@@ -41,7 +47,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             return CharacterAssetOverridePatchHelper.TryUseOverride(
                 __instance,
                 ref __result,
-                o => o.CustomIconOutlineTexturePath);
+                o => o.CustomIconOutlineTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomIconOutlineTexturePath));
         }
     }
 
@@ -60,7 +67,11 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomVisualsPath);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomVisualsPath,
+                nameof(IModCharacterAssetOverrides.CustomVisualsPath));
         }
     }
 
@@ -80,7 +91,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomEnergyCounterPath);
+                o => o.CustomEnergyCounterPath,
+                nameof(IModCharacterAssetOverrides.CustomEnergyCounterPath));
         }
     }
 
@@ -100,7 +112,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomMerchantAnimPath);
+                o => o.CustomMerchantAnimPath,
+                nameof(IModCharacterAssetOverrides.CustomMerchantAnimPath));
         }
     }
 
@@ -120,7 +133,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomRestSiteAnimPath);
+                o => o.CustomRestSiteAnimPath,
+                nameof(IModCharacterAssetOverrides.CustomRestSiteAnimPath));
         }
     }
 
@@ -140,7 +154,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomIconTexturePath);
+                o => o.CustomIconTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomIconTexturePath));
         }
     }
 
@@ -159,7 +174,11 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomIconPath);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomIconPath,
+                nameof(IModCharacterAssetOverrides.CustomIconPath));
         }
     }
 
@@ -179,7 +198,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomCharacterSelectBgPath);
+                o => o.CustomCharacterSelectBgPath,
+                nameof(IModCharacterAssetOverrides.CustomCharacterSelectBgPath));
         }
     }
 
@@ -204,7 +224,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             return CharacterAssetOverridePatchHelper.TryUseOverride(
                 __instance,
                 ref __result,
-                o => o.CustomCharacterSelectTransitionPath);
+                o => o.CustomCharacterSelectTransitionPath,
+                nameof(IModCharacterAssetOverrides.CustomCharacterSelectTransitionPath));
         }
     }
 
@@ -223,7 +244,11 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomTrailPath);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomTrailPath,
+                nameof(IModCharacterAssetOverrides.CustomTrailPath));
         }
     }
 
@@ -242,7 +267,12 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomAttackSfx);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomAttackSfx,
+                nameof(IModCharacterAssetOverrides.CustomAttackSfx),
+                false);
         }
     }
 
@@ -261,7 +291,12 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomCastSfx);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomCastSfx,
+                nameof(IModCharacterAssetOverrides.CustomCastSfx),
+                false);
         }
     }
 
@@ -280,7 +315,12 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
         public static bool Prefix(CharacterModel __instance, ref string __result)
             // ReSharper restore InconsistentNaming
         {
-            return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result, o => o.CustomDeathSfx);
+            return CharacterAssetOverridePatchHelper.TryUseOverride(
+                __instance,
+                ref __result,
+                o => o.CustomDeathSfx,
+                nameof(IModCharacterAssetOverrides.CustomDeathSfx),
+                false);
         }
     }
 
@@ -300,7 +340,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomArmPointingTexturePath);
+                o => o.CustomArmPointingTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomArmPointingTexturePath));
         }
     }
 
@@ -320,7 +361,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomArmRockTexturePath);
+                o => o.CustomArmRockTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomArmRockTexturePath));
         }
     }
 
@@ -340,7 +382,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomArmPaperTexturePath);
+                o => o.CustomArmPaperTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomArmPaperTexturePath));
         }
     }
 
@@ -360,7 +403,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             // ReSharper restore InconsistentNaming
         {
             return CharacterAssetOverridePatchHelper.TryUseOverride(__instance, ref __result,
-                o => o.CustomArmScissorsTexturePath);
+                o => o.CustomArmScissorsTexturePath,
+                nameof(IModCharacterAssetOverrides.CustomArmScissorsTexturePath));
         }
     }
 }

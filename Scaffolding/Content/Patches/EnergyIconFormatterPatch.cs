@@ -4,6 +4,7 @@ using MegaCrit.Sts2.Core.Localization.Formatters;
 using MegaCrit.Sts2.Core.Models;
 using STS2RitsuLib.Content;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Content.Patches
 {
@@ -141,6 +142,9 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
                 return;
 
             if (string.IsNullOrWhiteSpace(mapped.TextEnergyIconPath))
+                return;
+
+            if (!AssetPathDiagnostics.Exists(mapped.TextEnergyIconPath!, pool, nameof(IModTextEnergyIconPool.TextEnergyIconPath)))
                 return;
 
             dict.TryAdd(pool.EnergyColorName, mapped.TextEnergyIconPath!);

@@ -2,6 +2,7 @@ using MegaCrit.Sts2.Core.Helpers;
 using MegaCrit.Sts2.Core.Models;
 using STS2RitsuLib.Content;
 using STS2RitsuLib.Patching.Models;
+using STS2RitsuLib.Utils;
 
 namespace STS2RitsuLib.Scaffolding.Content.Patches
 {
@@ -79,6 +80,9 @@ namespace STS2RitsuLib.Scaffolding.Content.Patches
                 return;
 
             if (string.IsNullOrWhiteSpace(mapped.BigEnergyIconPath))
+                return;
+
+            if (!AssetPathDiagnostics.Exists(mapped.BigEnergyIconPath!, pool, nameof(IModBigEnergyIconPool.BigEnergyIconPath)))
                 return;
 
             dict.TryAdd(pool.EnergyColorName, mapped.BigEnergyIconPath!);
