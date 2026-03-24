@@ -5,3 +5,6 @@
 .idea/
 *.sln.DotSettings.user
 artifacts/nuget/
+
+local.props
+!local.props.template
