@@ -508,9 +508,26 @@ namespace STS2RitsuLib.Settings
             if (actionControl == null) return line;
             row.AddChild(actionControl);
             if (actionControl is ModSettingsActionsButton actionsButton)
-                AttachContextMenu(surface, actionsButton);
+                AttachContextMenuTargets(line, valueControl, actionsButton);
 
             return line;
+        }
+
+        private static void AttachContextMenuTargets(Control line, Control valueControl, ModSettingsActionsButton button)
+        {
+            AttachContextMenu(line, button);
+            AttachContextMenuRecursively(valueControl, button);
+        }
+
+        private static void AttachContextMenuRecursively(Control target, ModSettingsActionsButton button)
+        {
+            if (target is ModSettingsActionsButton)
+                return;
+
+            AttachContextMenu(target, button);
+            foreach (var child in target.GetChildren())
+                if (child is Control childControl)
+                    AttachContextMenuRecursively(childControl, button);
         }
 
         internal static void AttachContextMenu(Control target, ModSettingsActionsButton button)
