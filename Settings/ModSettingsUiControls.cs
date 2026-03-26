@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Text.Json;
 using Godot;
 using Godot.Collections;
 using MegaCrit.Sts2.addons.mega_text;
@@ -630,11 +629,7 @@ namespace STS2RitsuLib.Settings
         private static void CopyBindingValueToClipboard<TValue>(IModSettingsValueBinding<TValue> binding)
         {
             var adapter = ResolveClipboardAdapter(binding);
-            DisplayServer.ClipboardSet(JsonSerializer.Serialize(new ModSettingsClipboardEnvelope(
-                "ritsulib.settings.value",
-                typeof(TValue).FullName ?? typeof(TValue).Name,
-                ModSettingsClipboardScope.Self,
-                adapter.Serialize(binding.Read()))));
+            ModSettingsClipboardData.CopyValue(binding, ModSettingsClipboardScope.Self, adapter, binding.Read());
         }
 
         private static bool CanPasteBindingValueFromClipboard<TValue>(IModSettingsValueBinding<TValue> binding)
@@ -654,27 +649,7 @@ namespace STS2RitsuLib.Settings
         private static bool TryReadClipboardValue<TValue>(IModSettingsValueBinding<TValue> binding, out TValue value)
         {
             var adapter = ResolveClipboardAdapter(binding);
-            var clipboard = DisplayServer.ClipboardGet();
-            if (string.IsNullOrWhiteSpace(clipboard))
-            {
-                value = default!;
-                return false;
-            }
-
-            try
-            {
-                var envelope = JsonSerializer.Deserialize<ModSettingsClipboardEnvelope>(clipboard);
-                if (envelope is { Kind: "ritsulib.settings.value" }
-                    && string.Equals(envelope.TypeName, typeof(TValue).FullName ?? typeof(TValue).Name,
-                        StringComparison.Ordinal))
-                    return adapter.TryDeserialize(envelope.Payload, out value);
-            }
-            catch
-            {
-                // ignored
-            }
-
-            return adapter.TryDeserialize(clipboard, out value);
+            return ModSettingsClipboardData.TryReadValue(binding, adapter, out value);
         }
 
         private static IStructuredModSettingsValueAdapter<TValue> ResolveClipboardAdapter<TValue>(
@@ -1839,6 +1814,8 @@ namespace STS2RitsuLib.Settings
     internal sealed record ModSettingsClipboardEnvelope(
         string Kind,
         string TypeName,
+        string TargetSignature,
+        string SchemaSignature,
         ModSettingsClipboardScope Scope,
         string Payload);
 
@@ -1878,6 +1855,7 @@ namespace STS2RitsuLib.Settings
             var popup = GetPopup();
             _popup = popup;
             RefreshPopupItems();
+            popup.PopupHide += () => _preferredPopupPosition = null;
 
             popup.AboutToPopup += () =>
             {

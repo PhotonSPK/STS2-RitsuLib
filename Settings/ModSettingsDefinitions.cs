@@ -1,4 +1,8 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Reflection;
+using System.Text;
 using Godot;
 using STS2RitsuLib.Utils.Persistence;
 
@@ -37,6 +41,289 @@ namespace STS2RitsuLib.Settings
     public interface IStructuredModSettingsValueBinding<TValue> : IModSettingsValueBinding<TValue>
     {
         IStructuredModSettingsValueAdapter<TValue> Adapter { get; }
+    }
+
+    internal static class ModSettingsClipboardData
+    {
+        private const string ClipboardKind = "ritsulib.settings.value";
+        private static readonly ConcurrentDictionary<Type, string> SchemaSignatureCache = new();
+        private static readonly ConcurrentDictionary<Type, ClipboardSerializableMember[]> SerializableMemberCache = new();
+
+        public static void CopyValue<TValue>(IModSettingsBinding binding, ModSettingsClipboardScope scope,
+            IStructuredModSettingsValueAdapter<TValue> adapter, TValue value)
+        {
+            DisplayServer.ClipboardSet(JsonSerializer.Serialize(new ModSettingsClipboardEnvelope(
+                ClipboardKind,
+                typeof(TValue).FullName ?? typeof(TValue).Name,
+                CreateTargetSignature(binding),
+                GetSchemaSignature(typeof(TValue)),
+                scope,
+                adapter.Serialize(value))));
+        }
+
+        public static bool TryReadValue<TValue>(IModSettingsBinding binding,
+            IStructuredModSettingsValueAdapter<TValue> adapter, out TValue value)
+        {
+            var clipboard = DisplayServer.ClipboardGet();
+            if (string.IsNullOrWhiteSpace(clipboard))
+            {
+                value = default!;
+                return false;
+            }
+
+            if (TryParseEnvelope(clipboard, out var envelope))
+            {
+                if (!TryReadEnvelopePayload<TValue>(binding, envelope, out var payload))
+                {
+                    value = default!;
+                    return false;
+                }
+
+                return adapter.TryDeserialize(payload, out value);
+            }
+
+            if (!MatchesJsonShape(typeof(TValue), clipboard))
+            {
+                value = default!;
+                return false;
+            }
+
+            return adapter.TryDeserialize(clipboard, out value);
+        }
+
+        private static bool TryParseEnvelope(string clipboard, out ModSettingsClipboardEnvelope? envelope)
+        {
+            try
+            {
+                envelope = JsonSerializer.Deserialize<ModSettingsClipboardEnvelope>(clipboard);
+                return envelope is { Kind: ClipboardKind };
+            }
+            catch
+            {
+                envelope = null;
+                return false;
+            }
+        }
+
+        private static bool TryReadEnvelopePayload<TValue>(IModSettingsBinding binding,
+            ModSettingsClipboardEnvelope? envelope, out string payload)
+        {
+            payload = string.Empty;
+
+            if (envelope is not { Kind: ClipboardKind })
+                return false;
+
+            if (!string.Equals(envelope.TypeName, typeof(TValue).FullName ?? typeof(TValue).Name,
+                    StringComparison.Ordinal))
+                return false;
+
+            if (!string.Equals(envelope.TargetSignature, CreateTargetSignature(binding), StringComparison.Ordinal))
+                return false;
+
+            if (!string.Equals(envelope.SchemaSignature, GetSchemaSignature(typeof(TValue)), StringComparison.Ordinal))
+                return false;
+
+            if (!MatchesJsonShape(typeof(TValue), envelope.Payload))
+                return false;
+
+            payload = envelope.Payload;
+            return true;
+        }
+
+        private static string CreateTargetSignature(IModSettingsBinding binding)
+        {
+            return $"{binding.ModId}:{binding.Scope}:{NormalizeDataKey(binding.DataKey)}";
+        }
+
+        private static string NormalizeDataKey(string dataKey)
+        {
+            if (string.IsNullOrWhiteSpace(dataKey))
+                return string.Empty;
+
+            var builder = new StringBuilder(dataKey.Length);
+            for (var index = 0; index < dataKey.Length; index++)
+            {
+                if (dataKey[index] != '[')
+                {
+                    builder.Append(dataKey[index]);
+                    continue;
+                }
+
+                builder.Append("[]");
+                while (index + 1 < dataKey.Length && dataKey[index + 1] != ']')
+                    index++;
+                if (index + 1 < dataKey.Length && dataKey[index + 1] == ']')
+                    index++;
+            }
+
+            return builder.ToString();
+        }
+
+        private static string GetSchemaSignature(Type type)
+        {
+            return SchemaSignatureCache.GetOrAdd(type, static targetType => BuildSchemaSignature(targetType, []));
+        }
+
+        private static string BuildSchemaSignature(Type type, HashSet<Type> activeTypes)
+        {
+            var normalizedType = Nullable.GetUnderlyingType(type) ?? type;
+            if (!activeTypes.Add(normalizedType))
+                return normalizedType.FullName ?? normalizedType.Name;
+
+            try
+            {
+                if (normalizedType == typeof(string))
+                    return "string";
+                if (normalizedType == typeof(bool))
+                    return "bool";
+                if (normalizedType.IsEnum)
+                    return $"enum:{normalizedType.FullName}:{string.Join(',', Enum.GetNames(normalizedType))}";
+                if (IsNumericType(normalizedType))
+                    return $"number:{normalizedType.FullName}";
+                if (TryGetCollectionElementType(normalizedType, out var elementType))
+                    return $"array<{BuildSchemaSignature(elementType, activeTypes)}>";
+
+                var members = GetSerializableMembers(normalizedType);
+                if (members.Length == 0)
+                    return normalizedType.FullName ?? normalizedType.Name;
+
+                return $"object:{normalizedType.FullName}{{{string.Join(',', members.Select(member => $"{member.JsonName}:{BuildSchemaSignature(member.ValueType, activeTypes)}"))}}}";
+            }
+            finally
+            {
+                activeTypes.Remove(normalizedType);
+            }
+        }
+
+        private static bool MatchesJsonShape(Type type, string json)
+        {
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                return MatchesElement(type, document.RootElement);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool MatchesElement(Type type, JsonElement element)
+        {
+            var normalizedType = Nullable.GetUnderlyingType(type) ?? type;
+            if (element.ValueKind == JsonValueKind.Null)
+                return CanBeNull(type);
+
+            if (normalizedType == typeof(string))
+                return element.ValueKind == JsonValueKind.String;
+            if (normalizedType == typeof(bool))
+                return element.ValueKind is JsonValueKind.True or JsonValueKind.False;
+            if (normalizedType.IsEnum)
+                return element.ValueKind is JsonValueKind.String or JsonValueKind.Number;
+            if (IsNumericType(normalizedType))
+                return element.ValueKind == JsonValueKind.Number;
+            if (TryGetCollectionElementType(normalizedType, out var elementType))
+            {
+                if (element.ValueKind != JsonValueKind.Array)
+                    return false;
+
+                foreach (var child in element.EnumerateArray())
+                    if (!MatchesElement(elementType, child))
+                        return false;
+                return true;
+            }
+
+            if (element.ValueKind != JsonValueKind.Object)
+                return false;
+
+            var members = GetSerializableMembers(normalizedType);
+            if (members.Length == 0)
+                return false;
+
+            var properties = element.EnumerateObject()
+                .ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
+
+            foreach (var member in members)
+            {
+                if (!properties.Remove(member.JsonName, out var propertyValue))
+                    return false;
+                if (!MatchesElement(member.ValueType, propertyValue))
+                    return false;
+            }
+
+            return properties.Count == 0;
+        }
+
+        private static ClipboardSerializableMember[] GetSerializableMembers(Type type)
+        {
+            return SerializableMemberCache.GetOrAdd(type, static targetType =>
+            {
+                var members = new Dictionary<string, ClipboardSerializableMember>(StringComparer.Ordinal);
+                const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+
+                foreach (var property in targetType.GetProperties(flags))
+                {
+                    if (property.GetIndexParameters().Length > 0 || property.GetMethod == null || !property.GetMethod.IsPublic)
+                        continue;
+                    if (property.GetCustomAttribute<JsonIgnoreAttribute>()?.Condition == JsonIgnoreCondition.Always)
+                        continue;
+
+                    var jsonName = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? property.Name;
+                    members[jsonName] = new(jsonName, property.PropertyType);
+                }
+
+                foreach (var field in targetType.GetFields(flags))
+                {
+                    if (field.IsStatic)
+                        continue;
+                    if (field.GetCustomAttribute<JsonIgnoreAttribute>()?.Condition == JsonIgnoreCondition.Always)
+                        continue;
+
+                    var jsonName = field.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? field.Name;
+                    members.TryAdd(jsonName, new(jsonName, field.FieldType));
+                }
+
+                return members.Values
+                    .OrderBy(member => member.JsonName, StringComparer.Ordinal)
+                    .ToArray();
+            });
+        }
+
+        private static bool CanBeNull(Type type)
+        {
+            return !type.IsValueType || Nullable.GetUnderlyingType(type) != null;
+        }
+
+        private static bool IsNumericType(Type type)
+        {
+            return Type.GetTypeCode(type) is TypeCode.Byte or TypeCode.SByte or TypeCode.Int16 or TypeCode.UInt16
+                or TypeCode.Int32 or TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 or TypeCode.Single
+                or TypeCode.Double or TypeCode.Decimal;
+        }
+
+        private static bool TryGetCollectionElementType(Type type, out Type elementType)
+        {
+            if (type.IsArray)
+            {
+                elementType = type.GetElementType()!;
+                return true;
+            }
+
+            if (type.IsGenericType)
+            {
+                var genericType = type.GetGenericTypeDefinition();
+                if (genericType == typeof(List<>) || genericType == typeof(IList<>) || genericType == typeof(IReadOnlyList<>))
+                {
+                    elementType = type.GetGenericArguments()[0];
+                    return true;
+                }
+            }
+
+            elementType = null!;
+            return false;
+        }
+
+        private sealed record ClipboardSerializableMember(string JsonName, Type ValueType);
     }
 
     public static class ModSettingsBindings
@@ -659,11 +946,7 @@ namespace STS2RitsuLib.Settings
             if (Binding is not IStructuredModSettingsValueBinding<TItem> structured)
                 return false;
 
-            DisplayServer.ClipboardSet(JsonSerializer.Serialize(new ModSettingsClipboardEnvelope(
-                "ritsulib.settings.value",
-                typeof(TItem).FullName ?? typeof(TItem).Name,
-                scope,
-                structured.Adapter.Serialize(Item))));
+            ModSettingsClipboardData.CopyValue(Binding, scope, structured.Adapter, Item);
             return true;
         }
 
@@ -672,24 +955,7 @@ namespace STS2RitsuLib.Settings
             if (Binding is not IStructuredModSettingsValueBinding<TItem> structured)
                 return false;
 
-            var clipboard = DisplayServer.ClipboardGet();
-            if (string.IsNullOrWhiteSpace(clipboard))
-                return false;
-
-            try
-            {
-                var envelope = JsonSerializer.Deserialize<ModSettingsClipboardEnvelope>(clipboard);
-                if (envelope is { Kind: "ritsulib.settings.value" }
-                    && string.Equals(envelope.TypeName, typeof(TItem).FullName ?? typeof(TItem).Name,
-                        StringComparison.Ordinal))
-                    return structured.Adapter.TryDeserialize(envelope.Payload, out _);
-            }
-            catch
-            {
-                // ignored
-            }
-
-            return structured.Adapter.TryDeserialize(clipboard, out _);
+            return ModSettingsClipboardData.TryReadValue(Binding, structured.Adapter, out TItem _);
         }
 
         public bool TryPasteFromClipboard()
@@ -697,31 +963,8 @@ namespace STS2RitsuLib.Settings
             if (Binding is not IStructuredModSettingsValueBinding<TItem> structured)
                 return false;
 
-            var clipboard = DisplayServer.ClipboardGet();
-            if (string.IsNullOrWhiteSpace(clipboard))
+            if (!ModSettingsClipboardData.TryReadValue(Binding, structured.Adapter, out TItem value))
                 return false;
-
-            TItem value;
-            try
-            {
-                var envelope = JsonSerializer.Deserialize<ModSettingsClipboardEnvelope>(clipboard);
-                if (envelope is { Kind: "ritsulib.settings.value" }
-                    && string.Equals(envelope.TypeName, typeof(TItem).FullName ?? typeof(TItem).Name,
-                        StringComparison.Ordinal))
-                {
-                    if (!structured.Adapter.TryDeserialize(envelope.Payload, out value))
-                        return false;
-                }
-                else if (!structured.Adapter.TryDeserialize(clipboard, out value))
-                {
-                    return false;
-                }
-            }
-            catch
-            {
-                if (!structured.Adapter.TryDeserialize(clipboard, out value))
-                    return false;
-            }
 
             Update(value);
             return true;
