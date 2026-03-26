@@ -1,5 +1,6 @@
 using STS2RitsuLib.Cards.Patches;
 using STS2RitsuLib.Content.Patches;
+using STS2RitsuLib.Interop.Patches;
 using STS2RitsuLib.Lifecycle.Patches;
 using STS2RitsuLib.Localization.Patches;
 using STS2RitsuLib.Patching.Core;
@@ -46,6 +47,7 @@ namespace STS2RitsuLib
         private static void RegisterLifecyclePatches()
         {
             var patcher = CreatePatcher(Const.ModId, "framework-core", "framework core");
+            patcher.RegisterPatch<ModTypeDiscoveryPatch>();
             patcher.RegisterPatch<CoreInitializationLifecyclePatch>();
             patcher.RegisterPatch<LocTableGetLocStringCompatibilityPatch>();
             patcher.RegisterPatch<LocTableGetRawTextCompatibilityPatch>();
