@@ -191,10 +191,8 @@ namespace STS2RitsuLib.Settings
             if (!RunPasteRules(binding, typeof(TValue), clipboard, view))
                 return false;
 
-            if (TryInvokePasteApplier(binding, adapter, clipboard, out _))
-                return true;
-
-            return ModSettingsClipboardData.TryReadValue(binding, adapter, out _, RequireMatchingSourceBindingForPaste);
+            return TryInvokePasteApplier(binding, adapter, clipboard, out _) ||
+                   ModSettingsClipboardData.TryReadValue(binding, adapter, out _, RequireMatchingSourceBindingForPaste);
         }
 
         public static bool TryPasteBindingValue<TValue>(IModSettingsValueBinding<TValue> binding,

@@ -1,0 +1,673 @@
+using Godot;
+using MegaCrit.Sts2.addons.mega_text;
+using Timer = Godot.Timer;
+
+namespace STS2RitsuLib.Settings
+{
+    internal static partial class ModSettingsUiFactory
+    {
+        public static MarginContainer CreateModdingScreenButtonLine(Action openAction)
+        {
+            var line = new MarginContainer
+            {
+                Name = "RitsuLibModSettings",
+                CustomMinimumSize = new(0f, 64f),
+            };
+
+            line.AddThemeConstantOverride("margin_left", 12);
+            line.AddThemeConstantOverride("margin_right", 12);
+
+            var row = new HBoxContainer
+            {
+                Name = "ContentRow",
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.Fill,
+                Alignment = BoxContainer.AlignmentMode.Center,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            row.AddThemeConstantOverride("separation", 24);
+            line.AddChild(row);
+
+            var label = CreateHeaderLabel(
+                ModSettingsLocalization.Get("entry.title", "Mod Settings (RitsuLib)"),
+                28,
+                HorizontalAlignment.Left);
+            label.Name = "Label";
+            label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            row.AddChild(label);
+
+            var button =
+                new ModSettingsSettingsEntryButton(ModSettingsLocalization.Get("button.open", "Open"), openAction)
+                {
+                    Name = "RitsuLibModSettingsButton",
+                    FocusNeighborLeft = new("."),
+                    FocusNeighborRight = new("."),
+                };
+            button.CustomMinimumSize = new(320f, 64f);
+            row.AddChild(button);
+
+            return line;
+        }
+
+        public static ModSettingsSidebarButton CreateSidebarButton(string text, Action onPressed,
+            ModSettingsSidebarItemKind kind = ModSettingsSidebarItemKind.Page,
+            string? prefix = null,
+            int indentLevel = 0)
+        {
+            return new(text, onPressed, kind, prefix, indentLevel);
+        }
+
+        public static ColorRect CreateDivider()
+        {
+            return new()
+            {
+                CustomMinimumSize = new(0f, 2f),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Color = new(0.909804f, 0.862745f, 0.745098f, 0.25098f),
+            };
+        }
+
+        private static MarginContainer CreateSettingLine<TValue>(ModSettingsUiContext context,
+            Func<string> labelProvider,
+            Func<string> descriptionProvider, Control valueControl, IModSettingsValueBinding<TValue> binding)
+        {
+            return CreateSettingLine(context, labelProvider, descriptionProvider, valueControl,
+                CreateEntryActionsButton(context, binding));
+        }
+
+        private static MarginContainer CreateSettingLine(ModSettingsUiContext context, Func<string> labelProvider,
+            Func<string> descriptionProvider, Control valueControl, Control? actionControl = null)
+        {
+            var descriptionText = descriptionProvider();
+            var line = new MarginContainer
+            {
+                CustomMinimumSize = new(0f, string.IsNullOrWhiteSpace(descriptionText) ? 64f : 86f),
+            };
+
+            line.AddThemeConstantOverride("margin_left", 6);
+            line.AddThemeConstantOverride("margin_right", 6);
+            line.AddThemeConstantOverride("margin_top", 4);
+            line.AddThemeConstantOverride("margin_bottom", 4);
+
+            var surface = new PanelContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            surface.AddThemeStyleboxOverride("panel", CreateEntrySurfaceStyle());
+            line.AddChild(surface);
+
+            var row = new HBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Alignment = BoxContainer.AlignmentMode.Center,
+            };
+            row.AddThemeConstantOverride("separation", 24);
+            surface.AddChild(row);
+
+            var leftColumn = new VBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            leftColumn.AddThemeConstantOverride("separation", 4);
+
+            var label = CreateRefreshableHeaderLabel(context, labelProvider, 28, HorizontalAlignment.Left);
+            label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            leftColumn.AddChild(label);
+
+            var descriptionLabel = CreateRefreshableDescriptionLabel(context, descriptionProvider);
+            descriptionLabel.Visible = !string.IsNullOrWhiteSpace(descriptionText);
+            leftColumn.AddChild(descriptionLabel);
+
+            row.AddChild(leftColumn);
+
+            valueControl.CustomMinimumSize = new(Math.Max(EntryControlWidth, valueControl.CustomMinimumSize.X),
+                valueControl.CustomMinimumSize.Y);
+            valueControl.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+            row.AddChild(valueControl);
+
+            if (actionControl == null) return line;
+            row.AddChild(actionControl);
+            if (actionControl is ModSettingsActionsButton actionsButton)
+                AttachContextMenuTargets(line, valueControl, actionsButton);
+
+            return line;
+        }
+
+        internal static void AttachContextMenuTargets(Control line, Control valueControl,
+            ModSettingsActionsButton button)
+        {
+            AttachContextMenuRecursively(line, button);
+            AttachContextMenuRecursively(valueControl, button);
+        }
+
+        private static void AttachContextMenuRecursively(Control target, ModSettingsActionsButton button)
+        {
+            AttachContextMenu(target, button);
+            foreach (var child in target.GetChildren())
+                if (child is Control childControl)
+                    AttachContextMenuRecursively(childControl, button);
+        }
+
+        internal static void AttachContextMenu(Control target, ModSettingsActionsButton button)
+        {
+            if (target.HasMeta(ContextMenuAttachedMetaKey))
+                return;
+
+            target.SetMeta(ContextMenuAttachedMetaKey, true);
+
+            if (target.MouseFilter == Control.MouseFilterEnum.Ignore)
+                target.MouseFilter = Control.MouseFilterEnum.Pass;
+
+            var longPressTimer = new Timer
+            {
+                OneShot = true,
+                WaitTime = 0.55f,
+                Autostart = false,
+                ProcessCallback = Timer.TimerProcessCallback.Idle,
+            };
+            target.AddChild(longPressTimer);
+            var pendingTouchPosition = Vector2.Zero;
+            longPressTimer.Timeout += () => button.OpenAt(pendingTouchPosition);
+
+            target.GuiInput += @event =>
+            {
+                switch (@event)
+                {
+                    case InputEventScreenTouch touch:
+                    {
+                        if (touch.Pressed)
+                        {
+                            pendingTouchPosition = target.GetGlobalTransformWithCanvas().Origin + touch.Position;
+                            longPressTimer.Start();
+                        }
+                        else
+                        {
+                            longPressTimer.Stop();
+                        }
+
+                        return;
+                    }
+                    case InputEventScreenDrag:
+                        longPressTimer.Stop();
+                        return;
+                }
+
+                if (@event is not InputEventMouseButton
+                    {
+                        Pressed: true,
+                        ButtonIndex: MouseButton.Right,
+                    })
+                    return;
+
+                button.OpenAt(target.GetGlobalMousePosition());
+                target.GetViewport().SetInputAsHandled();
+            };
+        }
+
+        internal static Control? CreateEntryActionsButton<TValue>(ModSettingsUiContext context,
+            IModSettingsValueBinding<TValue> binding)
+        {
+            var actions = BuildBindingActions(context, binding);
+            return actions.Count == 0 ? null : new ModSettingsActionsButton(actions, context.RequestRefresh);
+        }
+
+        private static List<ModSettingsMenuAction> BuildBindingActions<TValue>(ModSettingsUiContext context,
+            IModSettingsValueBinding<TValue> binding)
+        {
+            var actions = new List<ModSettingsMenuAction>();
+            if (binding is IDefaultModSettingsValueBinding<TValue> defaults)
+                actions.Add(new(
+                    ModSettingsStandardActionIds.ResetToDefault,
+                    ModSettingsLocalization.Get("button.resetDefault", "Reset to default"),
+                    true,
+                    () =>
+                    {
+                        binding.Write(defaults.CreateDefaultValue());
+                        context.MarkDirty(binding);
+                        context.RequestRefresh();
+                    }));
+
+            actions.Add(new(
+                ModSettingsStandardActionIds.Copy,
+                ModSettingsLocalization.Get("button.copy", "Copy data"),
+                true,
+                () =>
+                {
+                    CopyBindingValueToClipboard(binding);
+                    context.RequestRefresh();
+                }));
+            actions.Add(new(
+                ModSettingsStandardActionIds.Paste,
+                ModSettingsLocalization.Get("button.paste", "Paste data"),
+                () => CanPasteBindingValueFromClipboard(binding),
+                () =>
+                {
+                    if (!TryPasteBindingValueFromClipboard(context, binding)) return;
+                    context.MarkDirty(binding);
+                    context.RequestRefresh();
+                }));
+            ModSettingsUiActionRegistry.AppendBindingActions(context, binding, actions);
+            return actions;
+        }
+
+        internal static List<ModSettingsMenuAction> BuildListItemMenuActions<TItem>(ModSettingsUiContext context,
+            ModSettingsListItemContext<TItem> itemContext)
+        {
+            var actions = new List<ModSettingsMenuAction>
+            {
+                new(ModSettingsStandardActionIds.MoveUp, ModSettingsLocalization.Get("button.moveUp", "Move up"),
+                    itemContext.CanMoveUp,
+                    itemContext.MoveUp),
+                new(ModSettingsStandardActionIds.MoveDown, ModSettingsLocalization.Get("button.moveDown", "Move down"),
+                    itemContext.CanMoveDown,
+                    itemContext.MoveDown),
+                new(ModSettingsStandardActionIds.Duplicate,
+                    ModSettingsLocalization.Get("button.duplicate", "Duplicate"),
+                    itemContext.SupportsStructuredClipboard,
+                    itemContext.Duplicate),
+                new(ModSettingsStandardActionIds.Copy, ModSettingsLocalization.Get("button.copy", "Copy data"),
+                    itemContext.SupportsStructuredClipboard,
+                    () => { itemContext.TryCopyToClipboard(); }),
+                new(ModSettingsStandardActionIds.Paste, ModSettingsLocalization.Get("button.paste", "Paste data"),
+                    itemContext.CanPasteFromClipboard,
+                    () => { itemContext.TryPasteFromClipboard(); }),
+                new(ModSettingsStandardActionIds.Remove, ModSettingsLocalization.Get("button.remove", "Remove"), true,
+                    itemContext.Remove),
+            };
+            ModSettingsUiActionRegistry.AppendListItemActions(context, itemContext, actions);
+            return actions;
+        }
+
+        internal static List<ModSettingsMenuAction> BuildPageMenuActions(ModSettingsUiContext context,
+            ModSettingsPageUiContext pageContext)
+        {
+            var actions = new List<ModSettingsMenuAction>
+            {
+                new(ModSettingsStandardActionIds.PageCopy, ModSettingsLocalization.Get("button.copy", "Copy data"),
+                    true,
+                    () =>
+                    {
+                        ModSettingsUiChromeClipboard.TryCopyPage(pageContext);
+                        context.RequestRefresh();
+                    }),
+                new(ModSettingsStandardActionIds.PagePaste, ModSettingsLocalization.Get("button.paste", "Paste data"),
+                    () => ModSettingsUiChromeClipboard.CanPastePage(pageContext),
+                    () =>
+                    {
+                        ModSettingsUiChromeClipboard.TryPastePage(pageContext);
+                        context.RequestRefresh();
+                    }),
+            };
+            ModSettingsUiActionRegistry.AppendPageActions(context, pageContext, actions);
+            return actions;
+        }
+
+        internal static List<ModSettingsMenuAction> BuildSectionMenuActions(ModSettingsUiContext context,
+            ModSettingsSectionUiContext sectionContext)
+        {
+            var actions = new List<ModSettingsMenuAction>
+            {
+                new(ModSettingsStandardActionIds.SectionCopy, ModSettingsLocalization.Get("button.copy", "Copy data"),
+                    true,
+                    () =>
+                    {
+                        ModSettingsUiChromeClipboard.TryCopySection(sectionContext);
+                        context.RequestRefresh();
+                    }),
+                new(ModSettingsStandardActionIds.SectionPaste,
+                    ModSettingsLocalization.Get("button.paste", "Paste data"),
+                    () => ModSettingsUiChromeClipboard.CanPasteSection(sectionContext),
+                    () =>
+                    {
+                        ModSettingsUiChromeClipboard.TryPasteSection(sectionContext);
+                        context.RequestRefresh();
+                    }),
+            };
+            ModSettingsUiActionRegistry.AppendSectionActions(context, sectionContext, actions);
+            return actions;
+        }
+
+        private static void CopyBindingValueToClipboard<TValue>(IModSettingsValueBinding<TValue> binding)
+        {
+            var adapter = ResolveClipboardAdapter(binding);
+            ModSettingsClipboardOperations.InvokeCopy(binding, ModSettingsClipboardScope.Self, adapter, binding.Read());
+        }
+
+        private static bool CanPasteBindingValueFromClipboard<TValue>(IModSettingsValueBinding<TValue> binding)
+        {
+            var adapter = ResolveClipboardAdapter(binding);
+            return ModSettingsClipboardOperations.CanPasteBindingValue(binding, adapter);
+        }
+
+        private static bool TryPasteBindingValueFromClipboard<TValue>(ModSettingsUiContext context,
+            IModSettingsValueBinding<TValue> binding)
+        {
+            var adapter = ResolveClipboardAdapter(binding);
+            if (!ModSettingsClipboardOperations.TryPasteBindingValue(binding, adapter, out var value,
+                    out var failureReason))
+            {
+                context.NotifyPasteFailure(failureReason);
+                return false;
+            }
+
+            binding.Write(value);
+            return true;
+        }
+
+        private static IStructuredModSettingsValueAdapter<TValue> ResolveClipboardAdapter<TValue>(
+            IModSettingsValueBinding<TValue> binding)
+        {
+            return binding is IStructuredModSettingsValueBinding<TValue> structured
+                ? structured.Adapter
+                : ModSettingsStructuredData.Json<TValue>();
+        }
+
+        private static Control CreateSection(ModSettingsUiContext context, ModSettingsPage page,
+            ModSettingsSection section)
+        {
+            var sectionUiContext = new ModSettingsSectionUiContext(page, section, context);
+            var sectionMenuActions = BuildSectionMenuActions(context, sectionUiContext);
+            var sectionActionsButton = sectionMenuActions.Count == 0
+                ? null
+                : new ModSettingsActionsButton(sectionMenuActions, context.RequestRefresh);
+
+            if (section.IsCollapsible)
+            {
+                var collapsible = new ModSettingsCollapsibleSection(
+                    section.Title != null
+                        ? ModSettingsUiContext.Resolve(section.Title)
+                        : ModSettingsLocalization.Get("section.default", "Section"),
+                    section.Id,
+                    section.Description != null ? ModSettingsUiContext.Resolve(section.Description) : null,
+                    section.StartCollapsed,
+                    section.Entries.Select(entry => entry.CreateControl(context)).ToArray(),
+                    sectionActionsButton);
+                if (sectionActionsButton != null)
+                    AttachContextMenuTargets(collapsible, collapsible, sectionActionsButton);
+                return collapsible;
+            }
+
+            {
+                var container = new VBoxContainer
+                {
+                    Name = $"Section_{section.Id}",
+                    MouseFilter = Control.MouseFilterEnum.Ignore,
+                };
+                container.AddThemeConstantOverride("separation", 6);
+
+                if (section.Title != null || sectionActionsButton != null)
+                {
+                    var headerRow = new HBoxContainer
+                    {
+                        SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                        MouseFilter = Control.MouseFilterEnum.Ignore,
+                        Alignment = BoxContainer.AlignmentMode.Begin,
+                    };
+                    headerRow.AddThemeConstantOverride("separation", 10);
+                    if (section.Title != null)
+                    {
+                        var title = CreateRefreshableSectionTitle(context,
+                            () => ModSettingsUiContext.Resolve(section.Title));
+                        title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+                        headerRow.AddChild(title);
+                    }
+                    else
+                    {
+                        headerRow.AddChild(new Control
+                        {
+                            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                            MouseFilter = Control.MouseFilterEnum.Ignore,
+                        });
+                    }
+
+                    if (sectionActionsButton != null)
+                        headerRow.AddChild(sectionActionsButton);
+                    container.AddChild(headerRow);
+                }
+
+                if (section.Description != null)
+                    container.AddChild(CreateRefreshableDescriptionLabel(context,
+                        () => ModSettingsUiContext.Resolve(section.Description)));
+                foreach (var entry in section.Entries)
+                    container.AddChild(entry.CreateControl(context));
+                if (sectionActionsButton != null)
+                    AttachContextMenuTargets(container, container, sectionActionsButton);
+                return container;
+            }
+        }
+
+        internal static MegaRichTextLabel CreateSectionTitle(string text)
+        {
+            var label = CreateHeaderLabel(text, 24, HorizontalAlignment.Left);
+            label.CustomMinimumSize = new(0f, 40f);
+            label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            return label;
+        }
+
+        internal static MegaRichTextLabel CreateRefreshableSectionTitle(ModSettingsUiContext context,
+            Func<string> textProvider)
+        {
+            var label = CreateSectionTitle(textProvider());
+            RegisterRefreshWhenAlive(context, label, () => label.SetTextAutoSize(textProvider()));
+            return label;
+        }
+
+        private static MegaRichTextLabel CreateRefreshableHeaderLabel(ModSettingsUiContext context,
+            Func<string> textProvider,
+            int fontSize, HorizontalAlignment alignment)
+        {
+            var label = CreateHeaderLabel(textProvider(), fontSize, alignment);
+            RegisterRefreshWhenAlive(context, label, () => label.SetTextAutoSize(textProvider()));
+            return label;
+        }
+
+        private static MegaRichTextLabel CreateHeaderLabel(string text, int fontSize, HorizontalAlignment alignment)
+        {
+            var label = new MegaRichTextLabel
+            {
+                BbcodeEnabled = true,
+                AutoSizeEnabled = false,
+                ScrollActive = false,
+                FocusMode = Control.FocusModeEnum.None,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = alignment,
+                Theme = ModSettingsUiResources.SettingsLineTheme,
+            };
+
+            label.AddThemeFontOverride("normal_font", ModSettingsUiResources.KreonRegular);
+            label.AddThemeFontOverride("bold_font", ModSettingsUiResources.KreonBold);
+            label.AddThemeFontSizeOverride("normal_font_size", fontSize);
+            label.AddThemeFontSizeOverride("bold_font_size", fontSize);
+            label.AddThemeFontSizeOverride("italics_font_size", fontSize);
+            label.AddThemeFontSizeOverride("bold_italics_font_size", fontSize);
+            label.AddThemeFontSizeOverride("mono_font_size", fontSize);
+            label.MinFontSize = Math.Min(fontSize, 18);
+            label.MaxFontSize = fontSize;
+            label.SetTextAutoSize(text);
+            return label;
+        }
+
+        internal static MegaRichTextLabel CreateInlineDescription(string text)
+        {
+            var label = CreateHeaderLabel(text, 16, HorizontalAlignment.Left);
+            label.CustomMinimumSize = new(0f, 24f);
+            label.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+            label.Modulate = new(0.82f, 0.79f, 0.72f, 0.92f);
+            return label;
+        }
+
+        private static MegaRichTextLabel CreateDescriptionLabel(string text)
+        {
+            return CreateInlineDescription(text);
+        }
+
+        internal static MegaRichTextLabel CreateRefreshableDescriptionLabel(ModSettingsUiContext context,
+            Func<string> textProvider)
+        {
+            var label = CreateDescriptionLabel(textProvider());
+            RegisterRefreshWhenAlive(context, label, () =>
+            {
+                var text = textProvider();
+                label.SetTextAutoSize(text);
+                label.Visible = !string.IsNullOrWhiteSpace(text);
+            });
+            return label;
+        }
+
+        private static string SanitizeName(string text)
+        {
+            return string.Join("_", text.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
+        }
+
+        internal static StyleBoxFlat CreateSurfaceStyle()
+        {
+            return new()
+            {
+                BgColor = new(0.095f, 0.115f, 0.15f, 0.965f),
+                BorderColor = new(0.38f, 0.58f, 0.70f, 0.42f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 14,
+                CornerRadiusTopRight = 14,
+                CornerRadiusBottomRight = 14,
+                CornerRadiusBottomLeft = 14,
+                ShadowColor = new(0f, 0f, 0f, 0.18f),
+                ShadowSize = 4,
+                ContentMarginLeft = 16,
+                ContentMarginTop = 12,
+                ContentMarginRight = 16,
+                ContentMarginBottom = 12,
+            };
+        }
+
+        private static StyleBoxFlat CreateEntrySurfaceStyle()
+        {
+            return CreateSurfaceStyle();
+        }
+
+        internal static StyleBoxFlat CreateInsetSurfaceStyle()
+        {
+            return new()
+            {
+                BgColor = new(0.07f, 0.085f, 0.11f, 0.98f),
+                BorderColor = new(0.30f, 0.44f, 0.56f, 0.34f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 12,
+                CornerRadiusTopRight = 12,
+                CornerRadiusBottomRight = 12,
+                CornerRadiusBottomLeft = 12,
+                ContentMarginLeft = 14,
+                ContentMarginTop = 12,
+                ContentMarginRight = 14,
+                ContentMarginBottom = 12,
+            };
+        }
+
+        internal static StyleBoxFlat CreateListShellStyle()
+        {
+            return new()
+            {
+                BgColor = new(0.06f, 0.075f, 0.098f, 0.98f),
+                BorderColor = new(0.34f, 0.52f, 0.64f, 0.38f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 18,
+                CornerRadiusTopRight = 18,
+                CornerRadiusBottomRight = 18,
+                CornerRadiusBottomLeft = 18,
+                ShadowColor = new(0f, 0f, 0f, 0.22f),
+                ShadowSize = 6,
+                ContentMarginLeft = 18,
+                ContentMarginTop = 18,
+                ContentMarginRight = 18,
+                ContentMarginBottom = 18,
+            };
+        }
+
+        internal static StyleBoxFlat CreateListItemCardStyle(bool accent = false)
+        {
+            return new()
+            {
+                BgColor = accent
+                    ? new(0.115f, 0.16f, 0.205f, 0.985f)
+                    : new Color(0.09f, 0.11f, 0.145f, 0.975f),
+                BorderColor = accent
+                    ? new(0.52f, 0.77f, 0.90f, 0.70f)
+                    : new Color(0.33f, 0.50f, 0.62f, 0.34f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 16,
+                CornerRadiusTopRight = 16,
+                CornerRadiusBottomRight = 16,
+                CornerRadiusBottomLeft = 16,
+                ShadowColor = new(0f, 0f, 0f, 0.18f),
+                ShadowSize = 4,
+                ContentMarginLeft = 16,
+                ContentMarginTop = 16,
+                ContentMarginRight = 16,
+                ContentMarginBottom = 16,
+            };
+        }
+
+        internal static StyleBoxFlat CreateListEditorSurfaceStyle()
+        {
+            return new()
+            {
+                BgColor = new(0.055f, 0.068f, 0.09f, 0.985f),
+                BorderColor = new(0.30f, 0.46f, 0.58f, 0.42f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 16,
+                CornerRadiusTopRight = 16,
+                CornerRadiusBottomRight = 16,
+                CornerRadiusBottomLeft = 16,
+                ShadowColor = new(0f, 0f, 0f, 0.16f),
+                ShadowSize = 3,
+                ContentMarginLeft = 18,
+                ContentMarginTop = 16,
+                ContentMarginRight = 18,
+                ContentMarginBottom = 16,
+            };
+        }
+
+        internal static StyleBoxFlat CreatePillStyle(bool highlighted = false)
+        {
+            return new()
+            {
+                BgColor = highlighted
+                    ? new(0.17f, 0.28f, 0.34f, 0.98f)
+                    : new Color(0.12f, 0.16f, 0.21f, 0.96f),
+                BorderColor = highlighted
+                    ? new(0.60f, 0.82f, 0.92f, 0.78f)
+                    : new Color(0.38f, 0.54f, 0.66f, 0.40f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 999,
+                CornerRadiusTopRight = 999,
+                CornerRadiusBottomRight = 999,
+                CornerRadiusBottomLeft = 999,
+                ContentMarginLeft = 12,
+                ContentMarginTop = 6,
+                ContentMarginRight = 12,
+                ContentMarginBottom = 6,
+            };
+        }
+    }
+}
