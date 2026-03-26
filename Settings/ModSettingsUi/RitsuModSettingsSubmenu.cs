@@ -357,7 +357,7 @@ namespace STS2RitsuLib.Settings
                 AnchorBottom = 1f,
                 MouseFilter = MouseFilterEnum.Ignore,
             };
-            root.AddThemeConstantOverride("separation", 14);
+            root.AddThemeConstantOverride("separation", 10);
             frame.AddChild(root);
 
             _pageTabRow = new()
@@ -498,6 +498,7 @@ namespace STS2RitsuLib.Settings
         private void RebuildContent()
         {
             _pageTabRow.FreeChildren();
+            _pageTabRow.Visible = false;
             _contentList.FreeChildren();
             _refreshActions.Clear();
 
@@ -540,8 +541,6 @@ namespace STS2RitsuLib.Settings
                      !string.Equals(page.Id, _selectedPageId, StringComparison.OrdinalIgnoreCase))))
                 _selectedPageId = rootPages[0].Id;
 
-            _pageTabRow.Visible = false;
-
             var pageToRender = ResolveSelectedPage();
             if (pageToRender == null)
             {
@@ -551,18 +550,22 @@ namespace STS2RitsuLib.Settings
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(pageToRender.ParentPageId))
-            {
-                var backButton = new ModSettingsSidebarButton(ModSettingsLocalization.Get("button.back", "Back"), () =>
-                {
-                    _selectedPageId = pageToRender.ParentPageId;
-                    RebuildContent();
-                });
-                backButton.CustomMinimumSize = new(140f, 48f);
-                _contentList.AddChild(backButton);
-            }
-
             var context = new ModSettingsUiContext(this);
+            var isChildPage = !string.IsNullOrWhiteSpace(pageToRender.ParentPageId);
+            Action onBack = isChildPage
+                ? () =>
+                {
+                    _selectedPageId = pageToRender.ParentPageId!;
+                    RebuildContent();
+                }
+                : static () => { };
+
+            _pageTabRow.Visible = true;
+            var pageHeader = ModSettingsUiFactory.CreateModSettingsPageHeaderBar(context, pageToRender, isChildPage,
+                onBack);
+            pageHeader.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _pageTabRow.AddChild(pageHeader);
+
             _contentList.AddChild(ModSettingsUiFactory.CreatePageContent(context, pageToRender));
             RefreshFocusNavigation();
             Callable.From(ScrollToSelectedAnchor).CallDeferred();

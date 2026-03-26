@@ -86,6 +86,7 @@
   "button.add": "新增",
   "button.clear": "清除",
   "button.actionsShort": "操作",
+  "button.actionsGlyph": "\u22ee",
   "button.resetDefault": "还原默认值",
   "color.title": "颜色编辑器",
   "color.mode.rgb": "RGB",

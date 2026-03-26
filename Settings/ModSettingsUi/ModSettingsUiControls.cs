@@ -871,19 +871,21 @@ namespace STS2RitsuLib.Settings
         {
             _actions = actions;
             _afterAction = afterAction;
-            Text = ModSettingsLocalization.Get("button.actionsShort", "Actions");
             FocusMode = FocusModeEnum.All;
             MouseFilter = MouseFilterEnum.Stop;
-            CustomMinimumSize = new(120f, 56f);
+            Flat = false;
+            Text = ModSettingsLocalization.Get("button.actionsGlyph", "\u22ee");
+            TooltipText = ModSettingsLocalization.Get("button.actionsShort", "Actions");
+            CustomMinimumSize = new(44f, 40f);
             AddThemeFontOverride("font", ModSettingsUiResources.KreonBold);
-            AddThemeFontSizeOverride("font_size", 18);
-            AddThemeColorOverride("font_color", new(0.95f, 0.98f, 1f));
-            AddThemeColorOverride("font_hover_color", new(1f, 1f, 1f));
+            AddThemeFontSizeOverride("font_size", 17);
+            AddThemeColorOverride("font_color", new(0.86f, 0.92f, 0.97f));
+            AddThemeColorOverride("font_hover_color", new(0.98f, 1f, 1f));
             AddThemeColorOverride("font_pressed_color", new(1f, 1f, 1f));
-            AddThemeStyleboxOverride("normal", ModSettingsUiFactory.CreateSurfaceStyle());
-            AddThemeStyleboxOverride("hover", ModSettingsUiFactory.CreateSurfaceStyle());
-            AddThemeStyleboxOverride("pressed", ModSettingsUiFactory.CreateSurfaceStyle());
-            AddThemeStyleboxOverride("focus", ModSettingsUiFactory.CreateSurfaceStyle());
+            AddThemeStyleboxOverride("normal", ModSettingsUiFactory.CreateChromeActionsMenuStyle(false));
+            AddThemeStyleboxOverride("hover", ModSettingsUiFactory.CreateChromeActionsMenuStyle(true));
+            AddThemeStyleboxOverride("pressed", ModSettingsUiFactory.CreateChromeActionsMenuStyle(true));
+            AddThemeStyleboxOverride("focus", ModSettingsUiFactory.CreateChromeActionsMenuStyle(true));
         }
 
         public ModSettingsActionsButton()
@@ -1709,6 +1711,7 @@ namespace STS2RitsuLib.Settings
             var actionsButton = new ModSettingsActionsButton(
                 ModSettingsUiFactory.BuildListItemMenuActions(owner.UiContext, itemContext),
                 itemContext.RequestRefresh);
+            actionsButton.SizeFlagsVertical = SizeFlags.ShrinkCenter;
             actions.AddChild(actionsButton);
             ModSettingsUiFactory.AttachContextMenuTargets(this, outer, actionsButton);
 
@@ -1979,7 +1982,7 @@ namespace STS2RitsuLib.Settings
                     MouseFilter = MouseFilterEnum.Ignore,
                     Alignment = AlignmentMode.Center,
                 };
-                headerRow.AddThemeConstantOverride("separation", 10);
+                headerRow.AddThemeConstantOverride("separation", 8);
                 if (_toggle != null)
                 {
                     _toggle.SizeFlagsHorizontal = SizeFlags.ExpandFill;
@@ -1995,7 +1998,11 @@ namespace STS2RitsuLib.Settings
                 }
 
                 if (_headerActions != null)
+                {
+                    _headerActions.SizeFlagsVertical = SizeFlags.ShrinkCenter;
                     headerRow.AddChild(_headerActions);
+                }
+
                 cardContent.AddChild(headerRow);
             }
 

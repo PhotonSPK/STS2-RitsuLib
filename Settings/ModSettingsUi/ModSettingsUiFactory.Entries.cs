@@ -36,29 +36,6 @@ namespace STS2RitsuLib.Settings
 
             container.AddThemeConstantOverride("separation", 8);
 
-            var pageUiContext = new ModSettingsPageUiContext(page, context);
-            var pageActions = BuildPageMenuActions(context, pageUiContext);
-            if (pageActions.Count > 0)
-            {
-                var pageActionBar = new HBoxContainer
-                {
-                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                    MouseFilter = Control.MouseFilterEnum.Ignore,
-                    Alignment = BoxContainer.AlignmentMode.End,
-                };
-                pageActionBar.AddThemeConstantOverride("separation", 10);
-                var pageSpacer = new Control
-                {
-                    SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                    MouseFilter = Control.MouseFilterEnum.Ignore,
-                };
-                pageActionBar.AddChild(pageSpacer);
-                var pageActionsButton = new ModSettingsActionsButton(pageActions, context.RequestRefresh);
-                pageActionBar.AddChild(pageActionsButton);
-                AttachContextMenuTargets(pageActionBar, pageActionBar, pageActionsButton);
-                container.AddChild(pageActionBar);
-            }
-
             var pageDescription =
                 CreateRefreshableDescriptionLabel(context,
                     () => ModSettingsUiContext.ResolvePageDescription(page) ?? string.Empty);

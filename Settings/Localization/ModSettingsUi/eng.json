@@ -86,6 +86,7 @@
   "button.add": "Add",
   "button.clear": "Clear",
   "button.actionsShort": "Actions",
+  "button.actionsGlyph": "\u22ee",
   "button.resetDefault": "Reset to default",
   "color.title": "Color Editor",
   "color.mode.rgb": "RGB",

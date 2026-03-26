@@ -373,6 +373,7 @@ namespace STS2RitsuLib.Settings
             var sectionActionsButton = sectionMenuActions.Count == 0
                 ? null
                 : new ModSettingsActionsButton(sectionMenuActions, context.RequestRefresh);
+            sectionActionsButton?.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
 
             if (section.IsCollapsible)
             {
@@ -404,9 +405,9 @@ namespace STS2RitsuLib.Settings
                     {
                         SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
                         MouseFilter = Control.MouseFilterEnum.Ignore,
-                        Alignment = BoxContainer.AlignmentMode.Begin,
+                        Alignment = BoxContainer.AlignmentMode.Center,
                     };
-                    headerRow.AddThemeConstantOverride("separation", 10);
+                    headerRow.AddThemeConstantOverride("separation", 8);
                     if (section.Title != null)
                     {
                         var title = CreateRefreshableSectionTitle(context,
@@ -570,6 +571,153 @@ namespace STS2RitsuLib.Settings
                 ContentMarginRight = 14,
                 ContentMarginBottom = 12,
             };
+        }
+
+        /// <summary>
+        ///     Compact MenuButton chrome for page/section toolbars (lighter than <see cref="CreateSurfaceStyle" />).
+        /// </summary>
+        internal static StyleBoxFlat CreateChromeActionsMenuStyle(bool highlighted)
+        {
+            return new()
+            {
+                BgColor = highlighted
+                    ? new(0.15f, 0.20f, 0.26f, 0.96f)
+                    : new Color(0.09f, 0.115f, 0.15f, 0.90f),
+                BorderColor = highlighted
+                    ? new(0.50f, 0.70f, 0.84f, 0.62f)
+                    : new Color(0.30f, 0.44f, 0.56f, 0.42f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 8,
+                CornerRadiusTopRight = 8,
+                CornerRadiusBottomRight = 8,
+                CornerRadiusBottomLeft = 8,
+                ContentMarginLeft = 10,
+                ContentMarginTop = 6,
+                ContentMarginRight = 10,
+                ContentMarginBottom = 6,
+            };
+        }
+
+        /// <summary>
+        ///     Subtle tray behind the page-level actions row.
+        /// </summary>
+        internal static StyleBoxFlat CreatePageToolbarTrayStyle()
+        {
+            return new()
+            {
+                BgColor = new(0.055f, 0.068f, 0.09f, 0.88f),
+                BorderColor = new(0.28f, 0.42f, 0.54f, 0.32f),
+                BorderWidthLeft = 1,
+                BorderWidthTop = 1,
+                BorderWidthRight = 1,
+                BorderWidthBottom = 1,
+                CornerRadiusTopLeft = 10,
+                CornerRadiusTopRight = 10,
+                CornerRadiusBottomRight = 10,
+                CornerRadiusBottomLeft = 10,
+                ContentMarginLeft = 8,
+                ContentMarginTop = 6,
+                ContentMarginRight = 8,
+                ContentMarginBottom = 6,
+            };
+        }
+
+        /// <summary>
+        ///     Fixed bar above the scrolling page body: optional back, centered page title, optional page ⋮ menu.
+        /// </summary>
+        internal static Control CreateModSettingsPageHeaderBar(ModSettingsUiContext context, ModSettingsPage page,
+            bool showBack, Action onBack)
+        {
+            var pageUiContext = new ModSettingsPageUiContext(page, context);
+            var pageActions = BuildPageMenuActions(context, pageUiContext);
+            var pageBtn = pageActions.Count == 0
+                ? null
+                : new ModSettingsActionsButton(pageActions, context.RequestRefresh);
+            pageBtn?.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+
+            var bar = CreatePageHeaderBar(ModSettingsLocalization.ResolvePageDisplayName(page), showBack, onBack,
+                pageBtn);
+            if (pageBtn != null)
+                AttachContextMenuTargets(bar, bar, pageBtn);
+            return bar;
+        }
+
+        private static Control CreatePageHeaderBar(string pageTitle, bool showBack, Action onBack,
+            ModSettingsActionsButton? trailingMenu)
+        {
+            const float sideSlotMin = 108f;
+
+            var tray = new PanelContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            tray.AddThemeStyleboxOverride("panel", CreatePageToolbarTrayStyle());
+
+            var row = new HBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Alignment = BoxContainer.AlignmentMode.Center,
+            };
+            row.AddThemeConstantOverride("separation", 8);
+
+            var left = new HBoxContainer
+            {
+                CustomMinimumSize = new(sideSlotMin, 40f),
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Alignment = BoxContainer.AlignmentMode.Begin,
+            };
+            if (showBack)
+            {
+                var back = new ModSettingsMiniButton(ModSettingsLocalization.Get("button.back", "Back"), onBack)
+                {
+                    SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                    CustomMinimumSize = new(88f, 38f),
+                };
+                left.AddChild(back);
+            }
+
+            var center = new HBoxContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Alignment = BoxContainer.AlignmentMode.Center,
+            };
+            var titleLabel = new Label
+            {
+                Text = pageTitle,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center,
+                AutowrapMode = TextServer.AutowrapMode.Off,
+                TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            };
+            titleLabel.AddThemeFontOverride("font", ModSettingsUiResources.KreonBold);
+            titleLabel.AddThemeFontSizeOverride("font_size", 22);
+            titleLabel.AddThemeColorOverride("font_color", new(0.96f, 0.98f, 1f));
+            center.AddChild(titleLabel);
+
+            var right = new HBoxContainer
+            {
+                CustomMinimumSize = new(sideSlotMin, 40f),
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                Alignment = BoxContainer.AlignmentMode.End,
+            };
+            if (trailingMenu != null)
+                right.AddChild(trailingMenu);
+
+            row.AddChild(left);
+            row.AddChild(center);
+            row.AddChild(right);
+            tray.AddChild(row);
+            return tray;
         }
 
         internal static StyleBoxFlat CreateListShellStyle()
