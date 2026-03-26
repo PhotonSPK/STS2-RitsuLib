@@ -93,6 +93,24 @@ namespace STS2RitsuLib.Content.Patches
         }
     }
 
+    public class AllSharedCardPoolsPatch : IPatchMethod
+    {
+        public static string PatchId => "modeldb_all_shared_card_pools";
+        public static string Description => "Append registered shared card pools to ModelDb.AllSharedCardPools";
+        public static bool IsCritical => true;
+
+        public static ModPatchTarget[] GetTargets()
+        {
+            return [new(typeof(ModelDb), "get_AllSharedCardPools")];
+        }
+
+        // ReSharper disable once InconsistentNaming
+        public static void Postfix(ref IEnumerable<CardPoolModel> __result)
+        {
+            __result = ModContentRegistry.AppendSharedCardPools(__result);
+        }
+    }
+
     public class AllEventsPatch : IPatchMethod
     {
         public static string PatchId => "modeldb_all_events";

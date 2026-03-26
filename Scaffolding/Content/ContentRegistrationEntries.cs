@@ -64,4 +64,13 @@ namespace STS2RitsuLib.Scaffolding.Content
             registry.RegisterPower<TPower>();
         }
     }
+
+    public sealed class SharedCardPoolRegistrationEntry<TPool> : IContentRegistrationEntry
+        where TPool : CardPoolModel
+    {
+        public void Register(ModContentRegistry registry)
+        {
+            registry.RegisterSharedCardPool<TPool>();
+        }
+    }
 }

@@ -25,6 +25,7 @@ namespace STS2RitsuLib.Content
         private static readonly HashSet<Type> RegisteredMonsters = [];
         private static readonly HashSet<Type> RegisteredPowers = [];
         private static readonly HashSet<Type> RegisteredOrbs = [];
+        private static readonly HashSet<Type> RegisteredSharedCardPools = [];
         private static readonly HashSet<Type> RegisteredSharedEvents = [];
         private static readonly HashSet<Type> RegisteredSharedAncients = [];
         private static readonly Dictionary<Type, HashSet<Type>> RegisteredActEncounters = [];
@@ -144,6 +145,12 @@ namespace STS2RitsuLib.Content
             RegisterStandaloneModel(RegisteredOrbs, typeof(TOrb), typeof(OrbModel), "orb");
         }
 
+        public void RegisterSharedCardPool<TPool>() where TPool : CardPoolModel
+        {
+            RegisterStandaloneModel(RegisteredSharedCardPools, typeof(TPool), typeof(CardPoolModel),
+                "shared card pool");
+        }
+
         public void RegisterSharedEvent<TEvent>() where TEvent : EventModel
         {
             RegisterStandaloneModel(RegisteredSharedEvents, typeof(TEvent), typeof(EventModel), "shared event");
@@ -230,6 +237,11 @@ namespace STS2RitsuLib.Content
             return AppendResolved(source, ResolveModels<OrbModel>(RegisteredOrbs));
         }
 
+        internal static IEnumerable<CardPoolModel> AppendSharedCardPools(IEnumerable<CardPoolModel> source)
+        {
+            return AppendResolved(source, ResolveModels<CardPoolModel>(RegisteredSharedCardPools));
+        }
+
         internal static IEnumerable<EventModel> AppendActEvents(ActModel act, IEnumerable<EventModel> source)
         {
             return AppendResolved(source, ResolveScopedModels<EventModel>(RegisteredActEvents, act.GetType()));
@@ -265,6 +277,7 @@ namespace STS2RitsuLib.Content
                     .Concat(RegisteredMonsters)
                     .Concat(RegisteredPowers)
                     .Concat(RegisteredOrbs)
+                    .Concat(RegisteredSharedCardPools)
                     .Concat(RegisteredSharedEvents)
                     .Concat(RegisteredSharedAncients)
                     .Concat(RegisteredActEncounters.Values.SelectMany(static set => set))

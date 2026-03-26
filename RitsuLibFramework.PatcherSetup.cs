@@ -159,6 +159,7 @@ namespace STS2RitsuLib
             patcher.RegisterPatch<ActsPatch>();
             patcher.RegisterPatch<AllPowersPatch>();
             patcher.RegisterPatch<AllOrbsPatch>();
+            patcher.RegisterPatch<AllSharedCardPoolsPatch>();
             patcher.RegisterPatch<AllSharedEventsPatch>();
             patcher.RegisterPatch<AllEventsPatch>();
             patcher.RegisterPatch<AllSharedAncientsPatch>();

@@ -74,6 +74,11 @@ namespace STS2RitsuLib.Scaffolding.Content
             return AddStep(ctx => ctx.Content.RegisterOrb<TOrb>());
         }
 
+        public ModContentPackBuilder SharedCardPool<TPool>() where TPool : CardPoolModel
+        {
+            return AddStep(ctx => ctx.Content.RegisterSharedCardPool<TPool>());
+        }
+
         public ModContentPackBuilder SharedEvent<TEvent>() where TEvent : EventModel
         {
             return AddStep(ctx => ctx.Content.RegisterSharedEvent<TEvent>());

@@ -11,10 +11,20 @@ namespace STS2RitsuLib.Scaffolding.Content
         CardType type,
         CardRarity rarity,
         TargetType target,
-        bool showInCardLibrary = true,
-        bool autoAdd = true) : CardModel(baseCost, type, rarity, target, showInCardLibrary), IModCardAssetOverrides
+        bool showInCardLibrary = true)
+        : CardModel(baseCost, type, rarity, target, showInCardLibrary), IModCardAssetOverrides
     {
-        protected bool AutoAddRequested { get; } = autoAdd;
+        [Obsolete("The autoAdd parameter is no longer used and will be removed in a future version.")]
+        protected ModCardTemplate(
+            int baseCost,
+            CardType type,
+            CardRarity rarity,
+            TargetType target,
+            bool showInCardLibrary,
+            bool autoAdd) : this(baseCost, type, rarity, target, showInCardLibrary)
+        {
+        }
+
         protected virtual IEnumerable<string> RegisteredKeywordIds => [];
         protected virtual IEnumerable<IHoverTip> AdditionalHoverTips => [];
 
