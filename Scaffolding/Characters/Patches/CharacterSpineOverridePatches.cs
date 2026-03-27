@@ -1,6 +1,6 @@
 using Godot;
-using MegaCrit.Sts2.Core.Bindings.MegaSpine;
 using MegaCrit.Sts2.Core.Nodes.Combat;
+using STS2RitsuLib.Compat;
 using STS2RitsuLib.Patching.Models;
 using STS2RitsuLib.Utils;
 
@@ -37,7 +37,8 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
                 return;
 
             var visuals = __instance.Visuals;
-            if (visuals?.Body == null || !visuals.HasSpineAnimation)
+            if (visuals == null || !visuals.HasSpineAnimation ||
+                !NCreatureVisualsSpineCompat.HasSpineTargetForOverride(visuals))
                 return;
 
             try
@@ -49,7 +50,9 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
                     return;
                 }
 
-                new MegaSprite(visuals.Body).SetSkeletonDataRes(new(skeletonData));
+                if (!NCreatureVisualsSpineCompat.TryApplyCombatSkeletonOverride(visuals, skeletonData))
+                    RitsuLibFramework.Logger.Warn(
+                        $"[Visuals] Could not apply combat spine override (no Body/SpineBody target): {skeletonPath}");
             }
             catch (Exception ex)
             {

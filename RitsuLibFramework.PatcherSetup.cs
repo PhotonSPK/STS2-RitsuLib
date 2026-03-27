@@ -1,5 +1,6 @@
 using STS2RitsuLib.Cards.Patches;
 using STS2RitsuLib.Content.Patches;
+using STS2RitsuLib.Interop.Patches;
 using STS2RitsuLib.Lifecycle.Patches;
 using STS2RitsuLib.Localization.Patches;
 using STS2RitsuLib.Patching.Core;
@@ -46,7 +47,13 @@ namespace STS2RitsuLib
         private static void RegisterLifecyclePatches()
         {
             var patcher = CreatePatcher(Const.ModId, "framework-core", "framework core");
+            patcher.RegisterPatch<ModTypeDiscoveryPatch>();
             patcher.RegisterPatch<CoreInitializationLifecyclePatch>();
+            patcher.RegisterPatch<NMainMenuContinueRunMissingCharacterPatch>();
+            patcher.RegisterPatch<NContinueRunInfoShowInfoModelNotFoundPatch>();
+            patcher.RegisterPatch<NMultiplayerLoadGameScreenBeginRunMissingCharacterPatch>();
+            patcher.RegisterPatch<NCustomRunLoadScreenBeginRunMissingCharacterPatch>();
+            patcher.RegisterPatch<NDailyRunLoadScreenBeginRunMissingCharacterPatch>();
             patcher.RegisterPatch<LocTableGetLocStringCompatibilityPatch>();
             patcher.RegisterPatch<LocTableGetRawTextCompatibilityPatch>();
             patcher.RegisterPatch<AncientDialoguePopulateLocKeysPatch>();
@@ -188,6 +195,7 @@ namespace STS2RitsuLib
             patcher.RegisterPatch<PotionUnlockFilterPatch>();
             patcher.RegisterPatch<GeneratedRoomEventUnlockFilterPatch>();
             patcher.RegisterPatch<EliteEpochCompatibilityPatch>();
+            patcher.RegisterPatch<EliteEpochAfterCombatFallbackPatch>();
             patcher.RegisterPatch<BossEpochCompatibilityPatch>();
             patcher.RegisterPatch<AscensionOneEpochCompatibilityPatch>();
             patcher.RegisterPatch<PostRunCharacterUnlockEpochCompatibilityPatch>();

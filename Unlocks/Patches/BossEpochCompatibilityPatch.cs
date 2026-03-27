@@ -32,7 +32,13 @@ namespace STS2RitsuLib.Unlocks.Patches
                 return true;
 
             if (!ModUnlockRegistry.TryGetBossEpochRule(character.Id, out var rule))
+            {
+                ModUnlockMissingRuleWarnings.WarnOnce(
+                    $"boss_epoch_rule:{character.Id}",
+                    $"[Unlocks] Mod character '{character.Id}' has no registered boss-win epoch rule (UnlockEpochAfterBossVictories / RegisterBossEpochRule). " +
+                    "Skipping vanilla boss epoch logic for this character so the run can continue.");
                 return false;
+            }
 
             if (SaveManager.Instance.Progress.IsEpochObtained(rule.EpochId))
                 return false;

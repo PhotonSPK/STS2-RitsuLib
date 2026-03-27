@@ -5,6 +5,7 @@ using MegaCrit.Sts2.Core.Logging;
 using MegaCrit.Sts2.Core.Modding;
 using STS2RitsuLib.Content;
 using STS2RitsuLib.Data;
+using STS2RitsuLib.Interop;
 using STS2RitsuLib.Keywords;
 using STS2RitsuLib.Patching.Core;
 using STS2RitsuLib.Scaffolding.Content;
@@ -119,6 +120,7 @@ namespace STS2RitsuLib
                 Logger.Info($"Framework Name: {Const.Name}");
                 Logger.Info($"Version: {Const.Version}");
                 Logger.Info("Initializing shared framework...");
+                ModTypeDiscoveryHub.EnsureBuiltInContributorsRegistered();
                 RitsuLibSettingsStore.Initialize();
                 RitsuLibModSettingsBootstrap.Initialize();
                 PublishLifecycleEvent(

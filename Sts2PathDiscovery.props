@@ -1,0 +1,36 @@
+<Project>
+    <!--
+      Fills Sts2Dir and Sts2DataDir when not set (e.g. no local.props).
+      Override by creating local.props with <Sts2Dir>...</Sts2Dir> or env MSBuild property /p:Sts2Dir=...
+    -->
+    <PropertyGroup>
+        <IsWindows>false</IsWindows>
+        <IsLinux>false</IsLinux>
+        <IsOSX>false</IsOSX>
+        <IsWindows Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</IsWindows>
+        <IsLinux Condition="$([MSBuild]::IsOSPlatform('Linux'))">true</IsLinux>
+        <IsOSX Condition="$([MSBuild]::IsOSPlatform('OSX'))">true</IsOSX>
+    </PropertyGroup>
+
+    <!-- Windows: Steam uninstall registry, then default Steam library paths -->
+    <PropertyGroup Condition="'$(IsWindows)' == 'true'">
+        <Sts2Dir Condition="'$(Sts2Dir)' == ''">$([MSBuild]::GetRegistryValueFromView('HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 2868840', 'InstallLocation', '', RegistryView.Registry64, RegistryView.Registry32))</Sts2Dir>
+        <_RitsuAutoSteamApps>$(registry:HKEY_CURRENT_USER\Software\Valve\Steam@SteamPath)\steamapps</_RitsuAutoSteamApps>
+        <SteamLibraryPath Condition="'$(SteamLibraryPath)' == '' and Exists('$(_RitsuAutoSteamApps)/common/Slay the Spire 2')">$(_RitsuAutoSteamApps)</SteamLibraryPath>
+        <SteamLibraryPath Condition="'$(SteamLibraryPath)' == ''">C:/Program Files (x86)/Steam/steamapps</SteamLibraryPath>
+        <Sts2Dir Condition="'$(Sts2Dir)' == ''">$(SteamLibraryPath)/common/Slay the Spire 2</Sts2Dir>
+        <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(Sts2Dir)\data_sts2_windows_x86_64</Sts2DataDir>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(IsLinux)' == 'true'">
+        <SteamLibraryPath Condition="'$(SteamLibraryPath)' == ''">$(HOME)/.local/share/Steam/steamapps</SteamLibraryPath>
+        <Sts2Dir Condition="'$(Sts2Dir)' == ''">$(SteamLibraryPath)/common/Slay the Spire 2</Sts2Dir>
+        <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(Sts2Dir)/data_sts2_linuxbsd_x86_64</Sts2DataDir>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(IsOSX)' == 'true'">
+        <SteamLibraryPath Condition="'$(SteamLibraryPath)' == ''">$(HOME)/Library/Application Support/Steam/steamapps</SteamLibraryPath>
+        <Sts2Dir Condition="'$(Sts2Dir)' == ''">$(SteamLibraryPath)/common/Slay the Spire 2</Sts2Dir>
+        <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">$(Sts2Dir)/data_sts2_macos_x86_64</Sts2DataDir>
+    </PropertyGroup>
+</Project>

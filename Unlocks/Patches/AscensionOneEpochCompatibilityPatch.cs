@@ -4,6 +4,7 @@ using MegaCrit.Sts2.Core.Multiplayer.Game.Lobby;
 using MegaCrit.Sts2.Core.Saves;
 using MegaCrit.Sts2.Core.Saves.Managers;
 using MegaCrit.Sts2.Core.Saves.Runs;
+using STS2RitsuLib.Compat;
 using STS2RitsuLib.Content;
 using STS2RitsuLib.Patching.Models;
 using SerializableRun = MegaCrit.Sts2.Core.Saves.SerializableRun;
@@ -42,11 +43,17 @@ namespace STS2RitsuLib.Unlocks.Patches
             if (!ModContentRegistry.TryGetOwnerModId(character.GetType(), out _))
                 return true;
 
-            if (!ModUnlockRegistry.TryGetAscensionOneEpoch(character.Id, out var epochId))
-                return false;
+            if (!Sts2RunGameModeCompat.IsStandardSerializableRunForEpochUnlocks(serializableRun))
+                return true;
 
-            if ((int)serializableRun.GetType().GetProperty("GameMode")!.GetValue(serializableRun)! != 1)
-                return false;
+            if (!ModUnlockRegistry.TryGetAscensionOneEpoch(character.Id, out var epochId))
+            {
+                ModUnlockMissingRuleWarnings.WarnOnce(
+                    $"ascension_one_epoch:{character.Id}",
+                    $"[Unlocks] Mod character '{character.Id}' has no registered ascension-one win epoch (UnlockEpochAfterAscensionOneWin / RegisterAscensionOneEpoch). " +
+                    "Leaving vanilla post-run check in place (no-op for this character).");
+                return true;
+            }
 
             if (SaveManager.Instance.Progress.IsEpochObtained(epochId))
                 return false;
@@ -96,11 +103,17 @@ namespace STS2RitsuLib.Unlocks.Patches
             if (!ModContentRegistry.TryGetOwnerModId(character.GetType(), out _))
                 return true;
 
-            if (!ModUnlockRegistry.TryGetPostRunCharacterUnlockEpoch(character.Id, out var epochId))
-                return false;
+            if (!Sts2RunGameModeCompat.IsStandardSerializableRunForEpochUnlocks(serializableRun))
+                return true;
 
-            if ((int)serializableRun.GetType().GetProperty("GameMode")!.GetValue(serializableRun)! != 1)
-                return false;
+            if (!ModUnlockRegistry.TryGetPostRunCharacterUnlockEpoch(character.Id, out var epochId))
+            {
+                ModUnlockMissingRuleWarnings.WarnOnce(
+                    $"postrun_char_unlock_epoch:{character.Id}",
+                    $"[Unlocks] Mod character '{character.Id}' has no registered post-run character-unlock epoch (UnlockCharacterAfterRunAs / RegisterPostRunCharacterUnlockEpoch). " +
+                    "Leaving vanilla post-run check in place (no-op for this character).");
+                return true;
+            }
 
             if (SaveManager.Instance.Progress.IsEpochObtained(epochId))
                 return false;

@@ -7,6 +7,7 @@ using MegaCrit.Sts2.Core.Nodes.Rooms;
 using MegaCrit.Sts2.Core.Nodes.Screens.GameOverScreen;
 using MegaCrit.Sts2.Core.Rooms;
 using MegaCrit.Sts2.Core.Runs;
+using STS2RitsuLib.Compat;
 using STS2RitsuLib.Patching.Models;
 
 namespace STS2RitsuLib.Scaffolding.Characters.Patches
@@ -60,7 +61,7 @@ namespace STS2RitsuLib.Scaffolding.Characters.Patches
             {
                 if (NCombatRoom.Instance.Mode == CombatRoomMode.ActiveCombat)
                     if (runState.CurrentRoom is CombatRoom currentCombatRoom)
-                        NCombatRoom.Instance.Ui.AnimOut(currentCombatRoom);
+                        NCombatUiAnimOutCompat.AnimOutForGameOver(NCombatRoom.Instance.Ui, currentCombatRoom);
 
                 creatureNodes = NCombatRoom.Instance.CreatureNodes.ToList();
                 visuals = creatureNodes.Select(creature => creature.Visuals).ToList();

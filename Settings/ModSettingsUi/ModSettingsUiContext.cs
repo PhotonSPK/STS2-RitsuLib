@@ -1,4 +1,4 @@
-using MegaCrit.Sts2.Core.Modding;
+using STS2RitsuLib.Compat;
 using STS2RitsuLib.Utils.Persistence;
 
 namespace STS2RitsuLib.Settings
@@ -31,7 +31,7 @@ namespace STS2RitsuLib.Settings
             if (!string.IsNullOrWhiteSpace(resolved))
                 return resolved;
 
-            return ModManager.AllMods
+            return Sts2ModManagerCompat.EnumerateModsForManifestLookup()
                 .FirstOrDefault(mod => string.Equals(mod.manifest?.id, page.ModId, StringComparison.OrdinalIgnoreCase))
                 ?.manifest?.description;
         }
